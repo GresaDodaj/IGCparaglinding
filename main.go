@@ -4,12 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/mongodb/mongo-go-driver/bson"
 	"log"
 	"math/rand"
 	"net/http"
 	"os"
-	"strconv"
-	"strings"
+
 	"time"
 
 	"github.com/gorilla/mux"
@@ -24,9 +24,20 @@ var urlMap = make(map[int]string)
 var mapID int
 var initialID int
 var uniqueId int
+var collection = connectToDB()
 
 type url struct {
 	URL string `json:"url"`
+}
+//per mos me i marr krejt te dhanat nga track file e bojna ket strukture  per te cilat te dhena na duhen
+type trackFile struct {
+	Pilot string
+	H_date string
+	Glider string
+	GliderID string
+	TrackLength string
+	Url string
+	UniqueID string
 }
 
 //saves the igc files tracks
@@ -45,7 +56,34 @@ type MetaInfo struct {
 	Version string `json:"version"`
 }
 
+func checkUrl(collection *mongo.Collection,url string)int64{
+
+	filter := bson.NewDocument(bson.EC.String("url",""+url+""))
+	length, err := collection.Count(context.Background(),filter)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return length
+}
+
 // this function returns true if the index is not found and false otherwise
+
+func connectToDB()*mongo.Collection{
+	client, err := mongo.NewClient("mongodb://localhost:27017")
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = client.Connect(context.TODO())
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	collection := client.Database("paraglidingDB").Collection("track")
+	
+	return collection
+}
 func findIndex(x map[int]string, y int) bool {
 	for k, _ := range x {
 		if k == y {
@@ -148,69 +186,105 @@ func getApiIGC(w http.ResponseWriter, request *http.Request) {
 			return
 		}
 
-		mapID = searchMap(urlMap, URLt.URL)
+		//mapID = searchMap(urlMap, URLt.URL)
 		initialID = rand.Intn(100)
+		trackFileDB := trackFile{}
+		//tash ktu me qit checkurl funksion e merr si parameter collection edhe urln qe e kena shkru ne post
+		if checkUrl(collection,URLt.URL)==0{
+			//nese sosht ne db qajo url atehere e kthen zero edhe ekzekutohet inserti
+			//mas = veq pe kthejme uniqueid ne string
+			//track osht e mariushit
+			track.UniqueID = fmt.Sprintf("%d",initialID)
+			//tash ktu ne trackfiledb i shtojme prej track te mariushit veq infot qe na duhen
+			trackFileDB = trackFile{track.Pilot,
+			track.Date.String(),
+			track.GliderType,
+			track.GliderID,
+			fmt.Sprintf("%f", trackLength(track)),
+			URLt.URL,
+			track.UniqueID}
 
-		client, err := mongo.NewClient("mongodb://localhost:27017")
-		if err != nil {
-			log.Fatal(err)
-		}
-		err = client.Connect(context.TODO())
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		collection := client.Database("paraglidingDB").Collection("track")
-
-		if mapID == -1 {
-			if findIndex(urlMap, initialID) {
-				uniqueId = initialID
-				urlMap[uniqueId] = URLt.URL
-
-				igcFile := Track{}
-				igcFile.ID = strconv.Itoa(uniqueId)
-				igcFile.IGC_Track = track
-				IGC_files = append(IGC_files, igcFile)
-				fmt.Fprint(w, "{\n\t\"id\": \""+igcFile.ID+"\"\n}")
-
-				res, err := collection.InsertOne(context.Background(), track)
-				if err != nil {
-					log.Fatal(err)
-				}
-				id := res.InsertedID
-
-				if id == nil {
-					http.Error(w, "", 500)
-				}
-
-				return
-			} else {
-				rand.Seed(time.Now().UnixNano())
-				uniqueId = rand.Intn(100)
-				urlMap[uniqueId] = URLt.URL
-				igcFile := Track{}
-				igcFile.ID = strconv.Itoa(uniqueId)
-				igcFile.IGC_Track = track
-				IGC_files = append(IGC_files, igcFile)
-				fmt.Fprint(w, "{\n\t\"id\": \""+igcFile.ID+"\"\n}")
-
-				res, err := collection.InsertOne(context.Background(), track)
-				if err != nil {
-					log.Fatal(err)
-				}
-				id := res.InsertedID
-
-				if id == nil {
-					http.Error(w, "", 500)
-				}
-
-				return
+			//me insert i shtijme qato te dhana ne databaze
+			res, err := collection.InsertOne(context.Background(), trackFileDB)
+			if err != nil {
+				log.Fatal(err)
 			}
-		} else {
-			uniqueId = searchMap(urlMap, URLt.URL)
-			fmt.Fprint(w, "{\n\t\"id\": \""+fmt.Sprintf("%d", uniqueId)+"\"\n}")
+			id := res.InsertedID
+//id osht per objectID e mongos nese osht nil dmth insertimi nuk osht bo me sukses se gjithe
+			if id == nil {
+				http.Error(w, "", 500)
+			}
+			fmt.Fprint(w, "{\n\t\"id\": \""+track.UniqueID+"\"\n}")
 			return
+		}else{
+
+			//gjema id e rreshtit ne db qe e ka urln te barabart me URLt.URL
+			//select id from track where urlprejpostit=urlt.url
+
+
+			filter := bson.NewDocument(bson.EC.String("url",URLt.URL))//where urlprejpostit=urlt.url
+			//decodde osht perdor per me kthy rreshtin e dbs ne strukture trackFileDB
+			err := collection.FindOne(context.Background(),filter).Decode(&trackFileDB) //select * where urlprejpostit=urlt.url
+
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			fmt.Fprint(w, "{\n\t\"id\": \""+trackFileDB.UniqueID+"\"\n}")//tash e bojna print veq id se qajo findone query ja shoqeron
+			//vlerat prej databazes strukres trackFileDB
+
 		}
+
+
+		//if mapID == -1 {
+		//	if findIndex(urlMap, initialID) {
+		//		uniqueId = initialID
+		//		urlMap[uniqueId] = URLt.URL
+		//
+		//		igcFile := Track{}
+		//		igcFile.ID = strconv.Itoa(uniqueId)
+		//		igcFile.IGC_Track = track
+		//		IGC_files = append(IGC_files, igcFile)
+		//		fmt.Fprint(w, "{\n\t\"id\": \""+igcFile.ID+"\"\n}")
+		//
+		//		res, err := collection.InsertOne(context.Background(), track)
+		//		if err != nil {
+		//			log.Fatal(err)
+		//		}
+		//		id := res.InsertedID
+		//
+		//		if id == nil {
+		//			http.Error(w, "", 500)
+		//		}
+		//
+		//		return
+		//	} else {
+		//		rand.Seed(time.Now().UnixNano())
+		//		uniqueId = rand.Intn(100)
+		//		urlMap[uniqueId] = URLt.URL
+		//		igcFile := Track{}
+		//		igcFile.ID = strconv.Itoa(uniqueId)
+		//		igcFile.IGC_Track = track
+		//		IGC_files = append(IGC_files, igcFile)
+		//		fmt.Fprint(w, "{\n\t\"id\": \""+igcFile.ID+"\"\n}")
+		//
+		//		res, err := collection.InsertOne(context.Background(), track)
+		//		if err != nil {
+		//			log.Fatal(err)
+		//		}
+		//		id := res.InsertedID
+		//
+		//		if id == nil {
+		//			http.Error(w, "", 500)
+		//		}
+		//
+		//		return
+		//	}
+		//} else {
+		//	uniqueId = searchMap(urlMap, URLt.URL)
+		//	fmt.Fprint(w, "{\n\t\"id\": \""+fmt.Sprintf("%d", uniqueId)+"\"\n}")
+		//	return
+		//}
 
 	default:
 		http.Error(w, "This method is not implemented!", 501)
@@ -235,22 +309,39 @@ func getApiIgcID(w http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	for i := range IGC_files {
-		//The requested meta information about a particular track based on the ID given in the url
-		//checking if the meta information about it is in memory if so the meta information will be returned
-		//otherwise it will return error 404, not found
-		if IGC_files[i].ID == URLt["id"] {
-			tDate := IGC_files[i].IGC_Track.Date.String()
-			tPilot := IGC_files[i].IGC_Track.Pilot
-			tGlider := IGC_files[i].IGC_Track.GliderType
-			tGliderId := IGC_files[i].IGC_Track.GliderID
-			tTrackLength := fmt.Sprintf("%f", trackLength(IGC_files[i].IGC_Track))
-			w.Header().Set("content-type", "application/json")
-			fmt.Fprint(w, "{\n\"H_date\": \""+tDate+"\",\n\"pilot\": \""+tPilot+"\",\n\"GliderType\": \""+tGlider+"\",\n\"Glider_ID\": \""+tGliderId+"\",\n\"track_length\": \""+tTrackLength+"\"\n}")
-		} else {
-			http.Error(w, "", 404)
-		}
+	trackFileDB := trackFile{}
+
+	filter := bson.NewDocument(bson.EC.String("uniqueid",URLt["id"]))//where uniqueid=urlt["id"] qikjo mas barazimit osht mux variabla te url aty ..../64 qikjo id
+	// decodde osht perdor per me kthy rreshtin e dbs ne strukture trackFileDB
+	err := collection.FindOne(context.Background(),filter).Decode(&trackFileDB)
+
+	if err != nil {
+		log.Fatal(err)
 	}
+
+
+	fmt.Fprint(w, "{\n\"H_date\": \""+trackFileDB.H_date+"\",\n\"pilot\": " +
+				"\""+trackFileDB.Pilot+"\",\n\"GliderType\": \""+trackFileDB.Glider+"\",\n\"Glider_ID\": " +
+				"\""+trackFileDB.GliderID+"\",\n\"track_length\": \""+trackFileDB.TrackLength+"\"\n}")
+
+	//for i := range IGC_files {
+	//	//The requested meta information about a particular track based on the ID given in the url
+	//	//checking if the meta information about it is in memory if so the meta information will be returned
+	//	//otherwise it will return error 404, not found
+	//	if IGC_files[i].ID == URLt["id"] {
+	//		tDate := IGC_files[i].IGC_Track.Date.String()
+	//		tPilot := IGC_files[i].IGC_Track.Pilot
+	//		tGlider := IGC_files[i].IGC_Track.GliderType
+	//		tGliderId := IGC_files[i].IGC_Track.GliderID
+	//		tTrackLength := fmt.Sprintf("%f", trackLength(IGC_files[i].IGC_Track))
+	//		w.Header().Set("content-type", "application/json")
+	//		fmt.Fprint(w, "{\n\"H_date\": \""+tDate+"\",\n\"pilot\": " +
+	//			"\""+tPilot+"\",\n\"GliderType\": \""+tGlider+"\",\n\"Glider_ID\": " +
+	//			"\""+tGliderId+"\",\n\"track_length\": \""+tTrackLength+"\"\n}")
+	//	} else {
+	//		http.Error(w, "", 404)
+	//	}
+	//}
 
 }
 
@@ -275,32 +366,54 @@ func getApiIgcIDField(w http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	for i := range IGC_files {
-		if IGC_files[i].ID == URLs["id"] {
+	trackFileDB := trackFile{}
 
-			mapping := map[string]string{
-				"pilot":        IGC_files[i].IGC_Track.Pilot,
-				"glider":       IGC_files[i].IGC_Track.GliderType,
-				"glider_id":    IGC_files[i].IGC_Track.GliderID,
-				"track_length": fmt.Sprintf("%f", trackLength(IGC_files[i].IGC_Track)),
-				"h_date":       IGC_files[i].IGC_Track.Date.String(),
-			}
+	filter := bson.NewDocument(bson.EC.String("uniqueid",URLs["id"]))//where uniqueid=urlt["id"] qikjo mas barazimit osht mux variabla te url aty ..../64 qikjo id
+	// decodde osht perdor per me kthy rreshtin e dbs ne strukture trackFileDB
+	err := collection.FindOne(context.Background(),filter).Decode(&trackFileDB)
 
-			field := URLs["field"]
-			field = strings.ToLower(field)
-
-			if val, ok := mapping[field]; ok {
-				fmt.Fprint(w, val)
-			} else {
-
-				http.Error(w, "", 404)
-
-				return
-			}
-
-		}
-
+	if err != nil {
+		log.Fatal(err)
 	}
+   //te url te pathi qe e shkrujna ../field e merr qita edhe me switch qka tosht e qet 
+	switch URLs["field"] {
+
+	case "pilot": fmt.Fprint(w,trackFileDB.Pilot)
+	case "h_date": fmt.Fprint(w,trackFileDB.H_date)
+	case "glider": fmt.Fprint(w,trackFileDB.Glider)
+	case "glider_id": fmt.Fprint(w,trackFileDB.GliderID)
+	case "track_length": fmt.Fprint(w,trackFileDB.TrackLength)
+	default:
+		http.Error(w,"Not found",404)
+	}
+
+	//for i := range IGC_files {
+	//
+	//	if IGC_files[i].ID == URLs["id"] {
+	//
+	//		mapping := map[string]string{
+	//			"pilot":        IGC_files[i].IGC_Track.Pilot,
+	//			"glider":       IGC_files[i].IGC_Track.GliderType,
+	//			"glider_id":    IGC_files[i].IGC_Track.GliderID,
+	//			"track_length": fmt.Sprintf("%f", trackLength(IGC_files[i].IGC_Track)),
+	//			"h_date":       IGC_files[i].IGC_Track.Date.String(),
+	//		}
+	//
+	//		field := URLs["field"]
+	//		field = strings.ToLower(field)
+	//
+	//		if val, ok := mapping[field]; ok {
+	//			fmt.Fprint(w, val)
+	//		} else {
+	//
+	//			http.Error(w, "", 404)
+	//
+	//			return
+	//		}
+	//
+	//	}
+	//
+	//}
 }
 
 //function calculating the total  distance of the flight, from the start point until end point(geographical coordinates)
@@ -348,7 +461,9 @@ func main() {
 	router.HandleFunc("/paragliding/", IGCinfo)
 	router.HandleFunc("/paragliding/api", GETapi)
 	router.HandleFunc("/paragliding/api/track", getApiIGC)
+	//qikjo {id} osht mux.vars
 	router.HandleFunc("/paragliding/api/track/{id}", getApiIgcID)
+	//ktu edhe field osht njo prej mux.vars
 	router.HandleFunc("/paragliding/api/track/{id}/{field}", getApiIgcIDField)
 
 	//err := http.ListenAndServe(":"+os.Getenv("PORT"), router)
