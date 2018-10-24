@@ -155,13 +155,45 @@ func getApiIGC(w http.ResponseWriter, request *http.Request) {
 			return
 		}
 
-		trackIDs := make([]string, 0, 0)
-
-		for i := range IGC_files {
-			trackIDs = append(trackIDs, IGC_files[i].ID)
+		trackFileDB := trackFile{}
+//filteri osht nil se krejt id kena me i kthy dmth nuk i filtrojna
+		cur, err := collection.Find(context.Background(),nil)
+		if err!=nil{
+			log.Fatal(err)
 		}
+		//ids ja nis array
+		ids := "["
+		//me length i kena numru sa rreshta jon ne db
+		length, err1 := collection.Count(context.Background(),nil)
+		if err1!=nil{
+			log.Fatal(err1)
+		}
+		i:= int64(0)//lengthi osht int64 qata e kena bo qashtu edhe vleren e ka 0
+		//cur.Next kthen true ose false, true nese ka rreshta tjere e false e kthen kur osht te rreshti i fundit
+		for cur.Next(context.Background()){
+			//tash ktu te dhanat prej dbs i kthejme ne strukture
+			cur.Decode(&trackFileDB)
+			//tash ktu e shtojna uniqueid prej trackfiledb ne array-in ids
+			ids+=trackFileDB.UniqueID
+			//kjo qe te rreshti i fundit mos me qit presjen
+			if i == length-1{
+				break
+			}
+			ids+=","
+			i++
+		}
+		ids += "]"
 
-		json.NewEncoder(w).Encode(trackIDs)
+		fmt.Fprint(w,ids)
+
+
+		//trackIDs := make([]string, 0, 0)
+		//
+		//for i := range IGC_files {
+		//	trackIDs = append(trackIDs, IGC_files[i].ID)
+		//}
+		//
+		//json.NewEncoder(w).Encode(trackIDs)
 
 	case "POST":
 		// Set response content-type to JSON
@@ -375,7 +407,7 @@ func getApiIgcIDField(w http.ResponseWriter, request *http.Request) {
 	if err != nil {
 		log.Fatal(err)
 	}
-   //te url te pathi qe e shkrujna ../field e merr qita edhe me switch qka tosht e qet 
+   //te url te pathi qe e shkrujna ../field e merr qita edhe me switch qka tosht e qet
 	switch URLs["field"] {
 
 	case "pilot": fmt.Fprint(w,trackFileDB.Pilot)
