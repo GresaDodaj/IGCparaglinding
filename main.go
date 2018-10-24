@@ -86,25 +86,6 @@ func connectToDB()*mongo.Collection{
 	
 	return collection
 }
-func findIndex(x map[int]string, y int) bool {
-	for k, _ := range x {
-		if k == y {
-			return false
-		}
-	}
-	return true
-}
-
-//this function the key of the string if the map contains it, or -1 if the map does not contain the string
-func searchMap(x map[int]string, y string) int {
-
-	for k, v := range x {
-		if v == y {
-			return k
-		}
-	}
-	return -1
-}
 
 //this function gets the port assigned by heroku
 func GetAddr() string {
@@ -123,7 +104,7 @@ func IGCinfo(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-func GETapi(w http.ResponseWriter, request *http.Request) {
+func getAPI(w http.ResponseWriter, request *http.Request) {
 	w.Header().Set("content-type", "application/json")
 
 	URLs := mux.Vars(request)
@@ -263,8 +244,6 @@ func getApiIGC(w http.ResponseWriter, request *http.Request) {
 		}
 
 
-
-
 	default:
 		http.Error(w, "This method is not implemented!", 501)
 		return
@@ -304,8 +283,6 @@ func getApiIgcID(w http.ResponseWriter, request *http.Request) {
 				"\""+trackFileDB.Pilot+"\",\n\"GliderType\": \""+trackFileDB.Glider+"\",\n\"Glider_ID\": " +
 				"\""+trackFileDB.GliderID+"\",\n\"track_length\": \""+trackFileDB.TrackLength+"\"" +
 		",\n\"track_src_url\": \""+trackFileDB.Url+"\"\n}")
-
-
 
 }
 
@@ -400,7 +377,6 @@ func getAPITicker(w http.ResponseWriter,r *http.Request){
 		log.Fatal(err)
 	}
 
-
 	//me length i kena numru sa rreshta jon ne db
 	length, err1 := collection.Count(context.Background(),nil)
 	if err1!=nil{
@@ -441,19 +417,12 @@ func getAPITicker(w http.ResponseWriter,r *http.Request){
 			t_stop = t_latest
 		}
 
-
-
-
-
 		i++
 	}
 	tracksStr+="]"
 	fmt.Fprint(w,"{\n\"t_latest\": \""+t_latest+"\",\n\"t_start\": " +
 		"\""+t_start+"\",\n\"t_stop\": \""+t_stop+"\",\n\"tracks\": " +
 		"\""+tracksStr+"\",\n\"processing\": \""+time.Since(sTime).String()+"\"\n}")
-
-
-
 
 }
 func getJ(collection *mongo.Collection,a string)int64{
@@ -552,19 +521,12 @@ func getAPITickerTimeStamp(w http.ResponseWriter,r *http.Request){
 			t_stop = t_latest
 		}
 
-
-
-
-
 		i++
 	}
 	tracksStr+="]"
 	fmt.Fprint(w,"{\n\"t_latest\": \""+t_latest+"\",\n\"t_start\": " +
 		"\""+t_start+"\",\n\"t_stop\": \""+t_stop+"\",\n\"tracks\": " +
 		"\""+tracksStr+"\",\n\"processing\": \""+time.Since(sTime).String()+"\"\n}")
-
-
-
 
 }
 
@@ -611,7 +573,7 @@ func main() {
 	router := mux.NewRouter()
 
 	router.HandleFunc("/paragliding/", IGCinfo)
-	router.HandleFunc("/paragliding/api", GETapi)
+	router.HandleFunc("/paragliding/api", getAPI)
 	router.HandleFunc("/paragliding/api/track", getApiIGC)
 	router.HandleFunc("/paragliding/api/ticker/latest", getAPITickerLatest)
 	router.HandleFunc("/paragliding/api/ticker", getAPITicker)
