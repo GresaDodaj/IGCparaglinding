@@ -9,9 +9,7 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
-
 	"time"
-
 	"github.com/gorilla/mux"
 	"github.com/marni/goigc"
 	"github.com/mongodb/mongo-go-driver/mongo"
@@ -20,16 +18,14 @@ import (
 
 //time since the server starts
 var startTime = time.Now()
-var urlMap = make(map[int]string)
-var mapID int
 var initialID int
-var uniqueId int
+
 var collection = connectToDB("track")
 
 type url struct {
 	URL string `json:"url"`
 }
-//per mos me i marr krejt te dhanat nga track file e bojna ket strukture  per te dhanat te cilat te dhena na duhen
+//trackFile struct is used to get the data we need from an igc file
 type trackFile struct {
 	Pilot string
 	H_date string
@@ -41,37 +37,36 @@ type trackFile struct {
 	TimeStamp time.Time
 }
 
-//saves the igc files tracks
-var IGC_files []Track
-
 //Struct that saves the ID and igcTrack data
 type Track struct {
-	ID        string    `json:"ID"`
-	IGC_Track igc.Track `json:"igcTrack"`
+	ID       string    `json:"ID"`
+	IGCTrack igc.Track `json:"igcTrack"`
 }
 
-//Struct that saves meta information about the server
+//MetaInfo is a struct that saves meta information about the server
 type MetaInfo struct {
 	Uptime  string `json:"uptime"`
 	Info    string `json:"info"`
 	Version string `json:"version"`
 }
 
-//checkUrl  func checks if the posted url is in the database
+//checkUrl  func checks if the posted url is already in the database
 func checkUrl(collection *mongo.Collection,url string,urlDB string)int64{
-	//select * from collection where url(e postit)=url
+	//select * from collection where url(e postit)=urlDB
+	//url is the url posted and the urlDB are the urls already in db
+	//check if any of the urlDB is the url posted(filter the db documents so that the url posted is equal to one of the urls in DB)
 	filter := bson.NewDocument(bson.EC.String(""+urlDB+"",""+url+""))
-	//lengthi e kthen pergjigjen nese osht qajo url ne koleksionin collection
+	//length is 0 if the url is not in the database
 	length, err := collection.Count(context.Background(),filter)
 
 	if err != nil {
 		log.Fatal(err)
 	}
-
+	//return the length if the length is 0 the url will be inserted in the db (where the function is called)
 	return length
 }
 
-// this function returns true if the index is not found and false otherwise
+//connectToDB is a function to connect the server to database
 func connectToDB(col string)*mongo.Collection{
 	client, err := mongo.NewClient("mongodb://localhost:27017")
 	if err != nil {
@@ -87,7 +82,7 @@ func connectToDB(col string)*mongo.Collection{
 	return collection
 }
 
-//this function gets the port assigned by heroku
+//GetAddr function gets the port assigned by heroku
 func GetAddr() string {
 	var port = os.Getenv("PORT")
 
@@ -121,8 +116,9 @@ func getAPI(w http.ResponseWriter, request *http.Request) {
 	json.NewEncoder(w).Encode(metaInfo)
 }
 
-//request is what we get from the client
-func getApiIGC(w http.ResponseWriter, request *http.Request) {
+//getAPIigc returns the id of the igc file if the request method used by the client is POST or returns the ids of igc files already in the db
+//if the request method is GET
+func getAPIigc(w http.ResponseWriter, request *http.Request) {
 
 	//request.method gives us the method selected by the client, in this api there are two methods
 	//that are implemented GET and POST, requests made for other methods will result to an error 501
@@ -139,22 +135,22 @@ func getApiIGC(w http.ResponseWriter, request *http.Request) {
 		}
 
 		trackFileDB := trackFile{}
-//filteri osht nil se krejt id kena me i kthy dmth nuk i filtrojna
+		//filter is nil because we need all the ids which means we don't need to filter them based on anything
 		cur, err := collection.Find(context.Background(),nil)
 		if err!=nil{
 			log.Fatal(err)
 		}
-		//ids ja nis array
+		//we store the ids on the ids variable
 		ids := "["
-		//me length i kena numru sa rreshta jon ne db
+		//length=number of documents in the db
 		length, err1 := collection.Count(context.Background(),nil)
 		if err1!=nil{
 			log.Fatal(err1)
 		}
-		i:= int64(0)//lengthi osht int64 qata e kena bo qashtu edhe vleren e ka 0
-		//cur.Next kthen true ose false, true nese ka rreshta tjere e false e kthen kur osht te rreshti i fundit
+		i:= int64(0)//we use int64 for i because the length is  int64 data and we set the value 0
+		//cur.Next returns true if there is a next document in the db, it returns false in the last document
 		for cur.Next(context.Background()){
-			//tash ktu te dhanat prej dbs i kthejme ne strukture
+			//we decode the document from the database into the trackFileDB struct(we get only the data we need)
 			cur.Decode(&trackFileDB)
 			//tash ktu e shtojna uniqueid prej trackfiledb ne array-in ids
 			ids+=trackFileDB.UniqueID
@@ -583,7 +579,7 @@ func main() {
 
 	router.HandleFunc("/paragliding/", IGCinfo)
 	router.HandleFunc("/paragliding/api", getAPI)
-	router.HandleFunc("/paragliding/api/track", getApiIGC)
+	router.HandleFunc("/paragliding/api/track", getAPIigc)
 	router.HandleFunc("/paragliding/api/ticker/latest", getAPITickerLatest)
 	router.HandleFunc("/paragliding/api/ticker", getAPITicker)
 	router.HandleFunc("/paragliding/api/ticker/{timestamp}", getAPITickerTimeStamp)

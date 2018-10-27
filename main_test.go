@@ -33,7 +33,7 @@ func Test_IGCinfo(test *testing.T) {
 
 func Test_getApiIGC_NotImplemented(test *testing.T) {
 
-	testServer := httptest.NewServer(http.HandlerFunc(getApiIGC))
+	testServer := httptest.NewServer(http.HandlerFunc(getAPIigc))
 	defer testServer.Close()
 
 	client := &http.Client{}
