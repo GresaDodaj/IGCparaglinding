@@ -150,11 +150,11 @@ func getAPIigc(w http.ResponseWriter, request *http.Request) {
 		i:= int64(0)//we use int64 for i because the length is  int64 data and we set the value 0
 		//cur.Next returns true if there is a next document in the db, it returns false in the last document
 		for cur.Next(context.Background()){
-			//we decode the document from the database into the trackFileDB struct(we get only the data we need)
+			//decode the document from the database into the trackFileDB struct(we get only the data we need)
 			cur.Decode(&trackFileDB)
-			//tash ktu e shtojna uniqueid prej trackfiledb ne array-in ids
+			//we add the uniqueID of the trackFileDB into the ids array
 			ids+=trackFileDB.UniqueID
-			//kjo qe te rreshti i fundit mos me qit presjen
+			//so that after the last member there is no comma
 			if i == length-1{
 				break
 			}
@@ -189,16 +189,14 @@ func getAPIigc(w http.ResponseWriter, request *http.Request) {
 			return
 		}
 
-		//mapID = searchMap(urlMap, URLt.URL)
 		initialID = rand.Intn(100)
 		trackFileDB := trackFile{}
-		//tash ktu me qit checkurl funksion e merr si parameter collection edhe urln qe e kena shkru ne post
+		//checkUrl gets the collection, url posted and url from database
 		if checkUrl(collection,URLt.URL,"url")==0{
-			//nese sosht ne db qajo url atehere e kthen zero edhe ekzekutohet inserti
-			//mas = veq pe kthejme uniqueid ne string
-			//track osht e mariushit
+			//if the check url is 0 then it means that the url posted is not in the database so the insertion is executed
+			//we assign the initialID(as string that's why the Sprintf is used
 			track.UniqueID = fmt.Sprintf("%d",initialID)
-			//tash ktu ne trackfiledb i shtojme prej track te mariushit veq infot qe na duhen
+			//from the track file which contains all the data of an igc file we assign values to the trackFileDB object
 			trackFileDB = trackFile{track.Pilot,
 			track.Date.String(),
 			track.GliderType,
@@ -208,13 +206,14 @@ func getAPIigc(w http.ResponseWriter, request *http.Request) {
 			track.UniqueID,
 			time.Now()}
 
-			//me insert i shtijme qato te dhana ne databaze
+			//insert that data to the database
 			res, err := collection.InsertOne(context.Background(), trackFileDB)
 			if err != nil {
 				log.Fatal(err)
 			}
 			id := res.InsertedID
-//id osht per objectID e mongos nese osht nil dmth insertimi nuk osht bo me sukses se gjithe
+			//id is the objectID of the MongoDB which is always generated as a unique id for every single document
+			// if that id is nil(don't have that id) it means that the insertion failed
 			if id == nil {
 				http.Error(w, "", 500)
 			}
@@ -223,21 +222,19 @@ func getAPIigc(w http.ResponseWriter, request *http.Request) {
 			return
 		}else{
 
-			//gjema id e rreshtit ne db qe e ka urln te barabart me URLt.URL
-			//select id from track where urlprejpostit=urlt.url
-
-
+			//analogy: select id from track where urlprejpostit=urlt.url
+			//if the checkUrl is not false then find the id of that igc file and print it
 			filter := bson.NewDocument(bson.EC.String("url",URLt.URL))//where urlprejpostit=urlt.url
-			//decodde osht perdor per me kthy rreshtin e dbs ne strukture trackFileDB
+			//decode is used to convert the document from the db to the trackFileDB structure
+			//FindOne because we are filtering them by url so it means that if that url is in db it's only added once so we after it's found one url
+			//that is the same as the url posted, it doesn't need to keep searching in the db for other urls
 			err := collection.FindOne(context.Background(),filter).Decode(&trackFileDB) //select * where urlprejpostit=urlt.url
 
 			if err != nil {
 				log.Fatal(err)
 			}
-
-			fmt.Fprint(w, "{\n\t\"id\": \""+trackFileDB.UniqueID+"\"\n}")//tash e bojna print veq id se qajo findone query ja shoqeron
-			//vlerat prej databazes strukres trackFileDB
-
+			//print only the id of that file
+			fmt.Fprint(w, "{\n\t\"id\": \""+trackFileDB.UniqueID+"\"\n}")
 		}
 
 
