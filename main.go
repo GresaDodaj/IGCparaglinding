@@ -94,7 +94,12 @@ func GetAddr() string {
 
 func IGCinfo(w http.ResponseWriter, r *http.Request) {
 
-	http.Error(w, "Error 404: Page not found!", http.StatusNotFound)
+	if r.Method != "GET" {
+		http.Error(w, "501 - Method not implemented", http.StatusNotImplemented)
+		return
+	}
+	// Redirect to /paragliding/api
+	http.Redirect(w, r, "/paragliding/api", 302)
 	return
 }
 
@@ -610,15 +615,15 @@ func main() {
 	router.HandleFunc("/paragliding/", IGCinfo)
 	router.HandleFunc("/paragliding/api", getAPI)
 	router.HandleFunc("/paragliding/api/track", getAPIigc)
-	router.HandleFunc("/paragliding/api/ticker/latest", getAPITickerLatest)
-	router.HandleFunc("/paragliding/api/ticker", getAPITicker)
-	router.HandleFunc("/paragliding/api/ticker/{timestamp}", getAPITickerTimeStamp)
 	router.HandleFunc("/paragliding/api/track/{id}", getApiIgcID)
 	router.HandleFunc("/paragliding/api/track/{id}/{field}", getApiIgcIDField)
 	router.HandleFunc("/api/webhook/new_track/", WebHookHandler)
 	router.HandleFunc("/api/webhook/new_track/{webhookID}", WebHookHandlerID)
 	router.HandleFunc("/admin/api/tracks_count", AdminHandlerGet)
 	router.HandleFunc("/admin/api/tracks", AdminHandlerDelete)
+	router.HandleFunc("/paragliding/api/ticker/latest", getAPITickerLatest)
+	router.HandleFunc("/paragliding/api/ticker", getAPITicker)
+	router.HandleFunc("/paragliding/api/ticker/{timestamp}", getAPITickerTimeStamp)
 
 	//err := http.ListenAndServe(":"+os.Getenv("PORT"), router)
 	if err := http.ListenAndServe(":8080", router); err != nil {
