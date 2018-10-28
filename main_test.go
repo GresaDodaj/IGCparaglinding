@@ -216,5 +216,31 @@ func Test_getAPIIgc_Post(t *testing.T) {
 	}
 
 }
+func Test_getAPIIgcPostEmpty(t *testing.T) {
+
+	ts := httptest.NewServer(http.HandlerFunc(getAPIigc))
+	defer ts.Close()
+
+	//create a request to our mock HTTP server
+	client := &http.Client{}
+
+	apiURLTest := url{}
+	apiURLTest.URL = ""
+
+	jsonData, _ := json.Marshal(apiURLTest)
+
+	req, err := http.NewRequest("POST", ts.URL, bytes.NewBuffer(jsonData))
+	if err != nil {
+		t.Errorf("Error making the POST request, %s", err)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Errorf("Error executing the POST request, %s", err)
+	}
+
+	assert.Equal(t, 400, resp.StatusCode, "OK response is expected")
+
+}
 
 
