@@ -4,14 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/mongodb/mongo-go-driver/bson"
 	"log"
 	"math/rand"
 	"net/http"
 	"os"
 	"time"
+
 	"github.com/gorilla/mux"
 	"github.com/marni/goigc"
+	"github.com/mongodb/mongo-go-driver/bson"
 	"github.com/mongodb/mongo-go-driver/mongo"
 	//"github.com/mongodb/mongo-go-driver/mongo"
 )
@@ -19,22 +20,24 @@ import (
 //time since the server starts
 var startTime = time.Now()
 var initialID int
-
+var lengthTrig int64
+var lengthTrigAfter int64
 var collection = connectToDB("track")
 
 type url struct {
 	URL string `json:"url"`
 }
+
 //trackFile struct is used to get the data we need from an igc file
 type trackFile struct {
-	Pilot string
-	H_date string
-	Glider string
-	GliderID string
+	Pilot       string
+	H_date      string
+	Glider      string
+	GliderID    string
 	TrackLength string
-	Url string
-	UniqueID string
-	TimeStamp time.Time
+	Url         string
+	UniqueID    string
+	TimeStamp   time.Time
 }
 
 //Struct that saves the ID and igcTrack data
@@ -51,13 +54,13 @@ type MetaInfo struct {
 }
 
 //checkUrl  func checks if the posted url is already in the database
-func checkUrl(collection *mongo.Collection,url string,urlDB string)int64{
+func checkUrl(collection *mongo.Collection, url string, urlDB string) int64 {
 	//select * from collection where url(e postit)=urlDB
 	//url is the url posted and the urlDB are the urls already in db
 	//check if any of the urlDB is the url posted(filter the db documents so that the url posted is equal to one of the urls in DB)
-	filter := bson.NewDocument(bson.EC.String(""+urlDB+"",""+url+""))
+	filter := bson.NewDocument(bson.EC.String(""+urlDB+"", ""+url+""))
 	//length is 0 if the url is not in the database
-	length, err := collection.Count(context.Background(),filter)
+	length, err := collection.Count(context.Background(), filter)
 
 	if err != nil {
 		log.Fatal(err)
@@ -67,7 +70,7 @@ func checkUrl(collection *mongo.Collection,url string,urlDB string)int64{
 }
 
 //connectToDB is a function to connect the server to database
-func connectToDB(col string)*mongo.Collection{
+func connectToDB(col string) *mongo.Collection {
 	client, err := mongo.NewClient("mongodb://localhost:27017")
 	if err != nil {
 		log.Fatal(err)
@@ -136,35 +139,34 @@ func getAPIigc(w http.ResponseWriter, request *http.Request) {
 
 		trackFileDB := trackFile{}
 		//filter is nil because we need all the ids which means we don't need to filter them based on anything
-		cur, err := collection.Find(context.Background(),nil)
-		if err!=nil{
+		cur, err := collection.Find(context.Background(), nil)
+		if err != nil {
 			log.Fatal(err)
 		}
 		//we store the ids on the ids variable
 		ids := "["
 		//length=number of documents in the db
-		length, err1 := collection.Count(context.Background(),nil)
-		if err1!=nil{
+		length, err1 := collection.Count(context.Background(), nil)
+		if err1 != nil {
 			log.Fatal(err1)
 		}
-		i:= int64(0)//we use int64 for i because the length is  int64 data and we set the value 0
+		i := int64(0) //we use int64 for i because the length is  int64 data and we set the value 0
 		//cur.Next returns true if there is a next document in the db, it returns false in the last document
-		for cur.Next(context.Background()){
+		for cur.Next(context.Background()) {
 			//decode the document from the database into the trackFileDB struct(we get only the data we need)
 			cur.Decode(&trackFileDB)
 			//we add the uniqueID of the trackFileDB into the ids array
-			ids+=trackFileDB.UniqueID
+			ids += trackFileDB.UniqueID
 			//so that after the last member there is no comma
-			if i == length-1{
+			if i == length-1 {
 				break
 			}
-			ids+=","
+			ids += ","
 			i++
 		}
 		ids += "]"
 
-		fmt.Fprint(w,ids)
-
+		fmt.Fprint(w, ids)
 
 	case "POST":
 		// Set response content-type to JSON
@@ -192,19 +194,25 @@ func getAPIigc(w http.ResponseWriter, request *http.Request) {
 		initialID = rand.Intn(100)
 		trackFileDB := trackFile{}
 		//checkUrl gets the collection, url posted and url from database
-		if checkUrl(collection,URLt.URL,"url")==0{
+		if checkUrl(collection, URLt.URL, "url") == 0 {
 			//if the check url is 0 then it means that the url posted is not in the database so the insertion is executed
 			//we assign the initialID(as string that's why the Sprintf is used
-			track.UniqueID = fmt.Sprintf("%d",initialID)
+			track.UniqueID = fmt.Sprintf("%d", initialID)
 			//from the track file which contains all the data of an igc file we assign values to the trackFileDB object
 			trackFileDB = trackFile{track.Pilot,
-			track.Date.String(),
-			track.GliderType,
-			track.GliderID,
-			fmt.Sprintf("%f", trackLength(track)),
-			URLt.URL,
-			track.UniqueID,
-			time.Now()}
+				track.Date.String(),
+				track.GliderType,
+				track.GliderID,
+				fmt.Sprintf("%f", trackLength(track)),
+				URLt.URL,
+				track.UniqueID,
+				time.Now()}
+
+			lengthTrig, err = collection.Count(context.Background(), nil)
+			if err != nil {
+				http.Error(w, "", 400)
+				return
+			}
 
 			//insert that data to the database
 			res, err := collection.InsertOne(context.Background(), trackFileDB)
@@ -218,17 +226,24 @@ func getAPIigc(w http.ResponseWriter, request *http.Request) {
 				http.Error(w, "", 500)
 			}
 			fmt.Fprint(w, "{\n\t\"id\": \""+track.UniqueID+"\"\n}")
+
 			triggerWebhook()
+			lengthTrigAfter, err = collection.Count(context.Background(), nil)
+			if err != nil {
+				http.Error(w, "", 400)
+				return
+			}
+
 			return
-		}else{
+		} else {
 
 			//analogy: select id from track where urlprejpostit=urlt.url
 			//if the checkUrl is not false then find the id of that igc file and print it
-			filter := bson.NewDocument(bson.EC.String("url",URLt.URL))//where urlprejpostit=urlt.url
+			filter := bson.NewDocument(bson.EC.String("url", URLt.URL)) //where urlprejpostit=urlt.url
 			//decode is used to convert the document from the db to the trackFileDB structure
 			//FindOne because we are filtering them by url so it means that if that url is in db it's only added once so we after it's found one url
 			//that is the same as the url posted, it doesn't need to keep searching in the db for other urls
-			err := collection.FindOne(context.Background(),filter).Decode(&trackFileDB) //select * where urlprejpostit=urlt.url
+			err := collection.FindOne(context.Background(), filter).Decode(&trackFileDB) //select * where urlprejpostit=urlt.url
 
 			if err != nil {
 				log.Fatal(err)
@@ -236,7 +251,6 @@ func getAPIigc(w http.ResponseWriter, request *http.Request) {
 			//print only the id of that file
 			fmt.Fprint(w, "{\n\t\"id\": \""+trackFileDB.UniqueID+"\"\n}")
 		}
-
 
 	default:
 		http.Error(w, "This method is not implemented!", 501)
@@ -256,7 +270,6 @@ func getApiIgcID(w http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-
 	if URLt["id"] == "" {
 		http.Error(w, "400 - Bad Request!", http.StatusBadRequest)
 		return
@@ -264,18 +277,17 @@ func getApiIgcID(w http.ResponseWriter, request *http.Request) {
 
 	trackFileDB := trackFile{}
 
-	filter := bson.NewDocument(bson.EC.String("uniqueid",URLt["id"]))//where uniqueid=urlt["id"] qikjo mas barazimit osht mux variabla te url aty ..../64 qikjo id
+	filter := bson.NewDocument(bson.EC.String("uniqueid", URLt["id"])) //where uniqueid=urlt["id"] qikjo mas barazimit osht mux variabla te url aty ..../64 qikjo id
 	// decodde osht perdor per me kthy rreshtin e dbs ne strukture trackFileDB
-	err := collection.FindOne(context.Background(),filter).Decode(&trackFileDB)
+	err := collection.FindOne(context.Background(), filter).Decode(&trackFileDB)
 
 	if err != nil {
 		log.Fatal(err)
 	}
 
-
-	fmt.Fprint(w, "{\n\"H_date\": \""+trackFileDB.H_date+"\",\n\"pilot\": " +
-				"\""+trackFileDB.Pilot+"\",\n\"GliderType\": \""+trackFileDB.Glider+"\",\n\"Glider_ID\": " +
-				"\""+trackFileDB.GliderID+"\",\n\"track_length\": \""+trackFileDB.TrackLength+"\"" +
+	fmt.Fprint(w, "{\n\"H_date\": \""+trackFileDB.H_date+"\",\n\"pilot\": "+
+		"\""+trackFileDB.Pilot+"\",\n\"GliderType\": \""+trackFileDB.Glider+"\",\n\"Glider_ID\": "+
+		"\""+trackFileDB.GliderID+"\",\n\"track_length\": \""+trackFileDB.TrackLength+"\""+
 		",\n\"track_src_url\": \""+trackFileDB.Url+"\"\n}")
 
 }
@@ -303,131 +315,131 @@ func getApiIgcIDField(w http.ResponseWriter, request *http.Request) {
 
 	trackFileDB := trackFile{}
 
-	filter := bson.NewDocument(bson.EC.String("uniqueid",URLs["id"]))//where uniqueid=urlt["id"] qikjo mas barazimit osht mux variabla te url aty ..../64 qikjo id
+	filter := bson.NewDocument(bson.EC.String("uniqueid", URLs["id"])) //where uniqueid=urlt["id"] qikjo mas barazimit osht mux variabla te url aty ..../64 qikjo id
 	// decodde osht perdor per me kthy rreshtin e dbs ne strukture trackFileDB
-	err := collection.FindOne(context.Background(),filter).Decode(&trackFileDB)
+	err := collection.FindOne(context.Background(), filter).Decode(&trackFileDB)
 
 	if err != nil {
 		log.Fatal(err)
 	}
-   //te url te pathi qe e shkrujna ../field e merr qita edhe me switch qka tosht e qet
+	//te url te pathi qe e shkrujna ../field e merr qita edhe me switch qka tosht e qet
 	switch URLs["field"] {
 
-	case "pilot": fmt.Fprint(w,trackFileDB.Pilot)
-	case "h_date": fmt.Fprint(w,trackFileDB.H_date)
-	case "glider": fmt.Fprint(w,trackFileDB.Glider)
-	case "glider_id": fmt.Fprint(w,trackFileDB.GliderID)
-	case "track_length": fmt.Fprint(w,trackFileDB.TrackLength)
+	case "pilot":
+		fmt.Fprint(w, trackFileDB.Pilot)
+	case "h_date":
+		fmt.Fprint(w, trackFileDB.H_date)
+	case "glider":
+		fmt.Fprint(w, trackFileDB.Glider)
+	case "glider_id":
+		fmt.Fprint(w, trackFileDB.GliderID)
+	case "track_length":
+		fmt.Fprint(w, trackFileDB.TrackLength)
 	default:
-		http.Error(w,"Not found",404)
+		http.Error(w, "Not found", 404)
 	}
 
 }
-func getAPITickerLatest(w http.ResponseWriter, r *http.Request){
+func getAPITickerLatest(w http.ResponseWriter, r *http.Request) {
 
-	fmt.Fprint(w,tLatest())
-
+	fmt.Fprint(w, tLatest())
 
 }
-func getAPITicker(w http.ResponseWriter,r *http.Request){
+func getAPITicker(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("content-type", "application/json")
 	sTime := time.Now()
-	t_latest:=""
-	t_start:=""
-	t_stop:=""
-	tracksStr :="["
-
-
+	t_latest := ""
+	t_start := ""
+	t_stop := ""
+	tracksStr := "["
 
 	trackFileDB := trackFile{}
 
-	cur, err := collection.Find(context.Background(),nil)
-	if err!=nil{
+	cur, err := collection.Find(context.Background(), nil)
+	if err != nil {
 		log.Fatal(err)
 	}
 
 	//me length i kena numru sa rreshta jon ne db
-	length, err1 := collection.Count(context.Background(),nil)
-	if err1!=nil{
+	length, err1 := collection.Count(context.Background(), nil)
+	if err1 != nil {
 		log.Fatal(err1)
 	}
-	i:= int64(0)//lengthi osht int64 qata e kena bo qashtu edhe vleren e ka 0
+	i := int64(0) //lengthi osht int64 qata e kena bo qashtu edhe vleren e ka 0
 	//cur.Next kthen true ose false, true nese ka rreshta tjere e false e kthen kur osht te rreshti i fundit
-	for cur.Next(context.Background()){
+	for cur.Next(context.Background()) {
 		//tash ktu te dhanat prej dbs i kthejme ne strukture
 		cur.Decode(&trackFileDB)
 
-
 		//e kena qe me i pas 5 tracks tash 01234 jon 5 kshtu qe i<=4
-		if i<=4{
+		if i <= 4 {
 			tracksStr += trackFileDB.UniqueID
 
 		}
 		//tstarti i bjen rreshti i pare qe osht shtu ne db
-		if i == 0{
-			t_start=fmt.Sprint(trackFileDB.TimeStamp)
+		if i == 0 {
+			t_start = fmt.Sprint(trackFileDB.TimeStamp)
 		}
-//rreshti i fundit osht length-1 kshtu qe qaj osht tlatest
-		if i == length-1{
-			t_latest=fmt.Sprint(trackFileDB.TimeStamp)
+		//rreshti i fundit osht length-1 kshtu qe qaj osht tlatest
+		if i == length-1 {
+			t_latest = fmt.Sprint(trackFileDB.TimeStamp)
 
-		}else if i<4{
+		} else if i < 4 {
 			tracksStr += ","
 		}
 		//nese ka ma shume se 5 tracksa merre te 5tin qe dmth i=4 edhe qata bone tstop
-		if length>4{
-		//te requiremets cap=5 01234 :
-			if i == 4{
-				t_stop=fmt.Sprint(trackFileDB.TimeStamp)
+		if length > 4 {
+			//te requiremets cap=5 01234 :
+			if i == 4 {
+				t_stop = fmt.Sprint(trackFileDB.TimeStamp)
 
 			}
-		}else{
+		} else {
 			//nese jon ma pak se 5 copa atehere shtype te fundit
 			t_stop = t_latest
 		}
 
 		i++
 	}
-	tracksStr+="]"
-	fmt.Fprint(w,"{\n\"t_latest\": \""+t_latest+"\",\n\"t_start\": " +
-		"\""+t_start+"\",\n\"t_stop\": \""+t_stop+"\",\n\"tracks\": " +
+	tracksStr += "]"
+	fmt.Fprint(w, "{\n\"t_latest\": \""+t_latest+"\",\n\"t_start\": "+
+		"\""+t_start+"\",\n\"t_stop\": \""+t_stop+"\",\n\"tracks\": "+
 		"\""+tracksStr+"\",\n\"processing\": \""+time.Since(sTime).String()+"\"\n}")
 
 }
-func getJ(collection *mongo.Collection,a string)int64{
+func getJ(collection *mongo.Collection, a string) int64 {
 	trackFileDB := trackFile{}
 
-	cur,err := collection.Find(context.Background(),nil)
+	cur, err := collection.Find(context.Background(), nil)
 
-	if err!= nil{
+	if err != nil {
 		log.Fatal(err)
 	}
 
 	var i int64
 	var j int64
 	//perderisa ka rreshta ne db:
-	for cur.Next(context.Background()){
-		err:=cur.Decode(&trackFileDB)
-		if err!=nil{
+	for cur.Next(context.Background()) {
+		err := cur.Decode(&trackFileDB)
+		if err != nil {
 			log.Fatal(err)
 		}
 		//nese timestampi qe osht jep ne url A qe osht qikjo: ../timestamp osht ne trackFileDB.TimeStamp.String() atehere ruje ne j qat
 		//timestamp edhe  e kthen
-		if trackFileDB.TimeStamp.String()==a{
-			j=i
+		if trackFileDB.TimeStamp.String() == a {
+			j = i
 			break
 		}
 		i++
 	}
 	return j
 }
-func getAPITickerTimeStamp(w http.ResponseWriter,r *http.Request){
+func getAPITickerTimeStamp(w http.ResponseWriter, r *http.Request) {
 	URLt := mux.Vars(r)
 	if len(URLt) != 1 {
 		http.Error(w, "400 - Bad Request!", http.StatusBadRequest)
 		return
 	}
-
 
 	if URLt["timestamp"] == "" {
 		http.Error(w, "400 - Bad Request!", http.StatusBadRequest)
@@ -436,65 +448,63 @@ func getAPITickerTimeStamp(w http.ResponseWriter,r *http.Request){
 
 	w.Header().Set("content-type", "application/json")
 	sTime := time.Now()
-	t_latest:=""
-	t_start:=""
-	t_stop:=""
-	tracksStr :="["
+	t_latest := ""
+	t_start := ""
+	t_stop := ""
+	tracksStr := "["
 
 	trackFileDB := trackFile{}
 
-	cur, err := collection.Find(context.Background(),nil)
-	if err!=nil{
+	cur, err := collection.Find(context.Background(), nil)
+	if err != nil {
 		log.Fatal(err)
 	}
 
-
 	//me length i kena numru sa rreshta jon ne db
-	length, err1 := collection.Count(context.Background(),nil)
-	if err1!=nil{
+	length, err1 := collection.Count(context.Background(), nil)
+	if err1 != nil {
 		log.Fatal(err1)
 	}
-	i:= int64(0)//lengthi osht int64 qata e kena bo qashtu edhe vleren e ka 0
-	j :=getJ(collection,URLt["timestamp"])
+	i := int64(0) //lengthi osht int64 qata e kena bo qashtu edhe vleren e ka 0
+	j := getJ(collection, URLt["timestamp"])
 	//cur.Next kthen true ose false, true nese ka rreshta tjere e false e kthen kur osht te rreshti i fundit
-	for cur.Next(context.Background()){
+	for cur.Next(context.Background()) {
 		//tash ktu te dhanat prej dbs i kthejme ne strukture
 		cur.Decode(&trackFileDB)
 
-
 		//e kena qe me i pas 5 tracks tash 01234 jon 5 kshtu qe i<=4
-		if i>j && i<=j+5{
+		if i > j && i <= j+5 {
 			tracksStr += trackFileDB.UniqueID
 
 		}
 		//tstarti i bjen rreshti i pare qe osht shtu ne db
-		if i == j+1{
-			t_start=fmt.Sprint(trackFileDB.TimeStamp)
+		if i == j+1 {
+			t_start = fmt.Sprint(trackFileDB.TimeStamp)
 		}
 		//rreshti i fundit osht length-1 kshtu qe qaj osht tlatest
-		if i == length-1{
-			t_latest=fmt.Sprint(trackFileDB.TimeStamp)
+		if i == length-1 {
+			t_latest = fmt.Sprint(trackFileDB.TimeStamp)
 
-		}else if i>j && i<j+5{
+		} else if i > j && i < j+5 {
 			tracksStr += ","
 		}
 		//nese ka ma shume se 5 tracksa merre te 5tin qe dmth i=4 edhe qata bone tstop
-		if length>j+5{
+		if length > j+5 {
 			//te requiremets cap=5 01234 :
-			if i == j+5{
-				t_stop=fmt.Sprint(trackFileDB.TimeStamp)
+			if i == j+5 {
+				t_stop = fmt.Sprint(trackFileDB.TimeStamp)
 
 			}
-		}else{
+		} else {
 			//nese jon ma pak se 5 copa atehere shtype te fundit
 			t_stop = t_latest
 		}
 
 		i++
 	}
-	tracksStr+="]"
-	fmt.Fprint(w,"{\n\"t_latest\": \""+t_latest+"\",\n\"t_start\": " +
-		"\""+t_start+"\",\n\"t_stop\": \""+t_stop+"\",\n\"tracks\": " +
+	tracksStr += "]"
+	fmt.Fprint(w, "{\n\"t_latest\": \""+t_latest+"\",\n\"t_start\": "+
+		"\""+t_start+"\",\n\"t_stop\": \""+t_stop+"\",\n\"tracks\": "+
 		"\""+tracksStr+"\",\n\"processing\": \""+time.Since(sTime).String()+"\"\n}")
 
 }
@@ -537,30 +547,29 @@ func FormatSince(t time.Time) string {
 	return fmt.Sprintf("P%dY%dD%dH%dM%d.%dS", y, d, h, m, s, f)
 }
 
-func tLatest() string{
+func tLatest() string {
 	trackFileDB := trackFile{}
 
-	cur, err := collection.Find(context.Background(),nil)
-	if err!=nil{
+	cur, err := collection.Find(context.Background(), nil)
+	if err != nil {
 		log.Fatal(err)
 	}
 
-
 	//me length i kena numru sa rreshta jon ne db
-	length, err1 := collection.Count(context.Background(),nil)
-	if err1!=nil{
+	length, err1 := collection.Count(context.Background(), nil)
+	if err1 != nil {
 		log.Fatal(err1)
 	}
-	respons :=""
-	i:= int64(0)//lengthi osht int64 qata e kena bo qashtu edhe vleren e ka 0
+	respons := ""
+	i := int64(0) //lengthi osht int64 qata e kena bo qashtu edhe vleren e ka 0
 	//cur.Next kthen true ose false, true nese ka rreshta tjere e false e kthen kur osht te rreshti i fundit
-	for cur.Next(context.Background()){
+	for cur.Next(context.Background()) {
 		//tash ktu te dhanat prej dbs i kthejme ne strukture
 		cur.Decode(&trackFileDB)
 
 		//kur t'mrrin te rreshti i fundit me ja kthy qat timestamp se qaj osht the latest
-		if i == length-1{
-			respons=fmt.Sprint(trackFileDB.TimeStamp)
+		if i == length-1 {
+			respons = fmt.Sprint(trackFileDB.TimeStamp)
 		}
 
 		i++
@@ -571,6 +580,24 @@ func tLatest() string{
 }
 
 func main() {
+
+	ticker := time.NewTicker(40 * time.Second)
+	quit := make(chan struct{})
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				if lengthTrig < lengthTrigAfter {
+					triggerWebhookPeriod(lengthTrig)
+					lengthTrig++
+				}
+				fmt.Print("u bo ")
+			case <-quit:
+				ticker.Stop()
+				return
+			}
+		}
+	}()
 
 	router := mux.NewRouter()
 
@@ -584,8 +611,10 @@ func main() {
 	router.HandleFunc("/paragliding/api/track/{id}", getApiIgcID)
 	//ktu edhe field osht njo prej mux.vars
 	router.HandleFunc("/paragliding/api/track/{id}/{field}", getApiIgcIDField)
-	router.HandleFunc("/api/webhook/new_track/",WebHookHandler)
-	router.HandleFunc("/api/webhook/new_track/{webhookID}",WebHookHandlerID)
+	router.HandleFunc("/api/webhook/new_track/", WebHookHandler)
+	router.HandleFunc("/api/webhook/new_track/{webhookID}", WebHookHandlerID)
+	router.HandleFunc("/admin/api/tracks_count", AdminHandlerGet)
+	router.HandleFunc("/admin/api/tracks", AdminHandlerDelete)
 
 	//err := http.ListenAndServe(":"+os.Getenv("PORT"), router)
 	if err := http.ListenAndServe(":8080", router); err != nil {

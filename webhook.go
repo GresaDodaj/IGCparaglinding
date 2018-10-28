@@ -5,15 +5,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/gorilla/mux"
-	"github.com/mongodb/mongo-go-driver/bson"
-	"github.com/mongodb/mongo-go-driver/mongo"
 	"log"
 	"math/rand"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/gorilla/mux"
+	"github.com/mongodb/mongo-go-driver/bson"
+	"github.com/mongodb/mongo-go-driver/mongo"
 )
 
 var coll = connectToDB("webhooks")
@@ -111,47 +112,64 @@ func WebHookHandler(w http.ResponseWriter, r *http.Request) {
 
 	}
 
-
 }
-func WebHookHandlerID(w http.ResponseWriter,r *http.Request){
+func WebHookHandlerID(w http.ResponseWriter, r *http.Request) {
 
-	if r.Method==http.MethodGet{
+	w.Header().Set("content-type", "application/json")
 
-		w.Header().Set("content-type", "application/json")
-
-		URLt := mux.Vars(r)
-		if len(URLt) != 1 {
-			http.Error(w, "400 - Bad Request!", http.StatusBadRequest)
-			return
-		}
-
-
-		if URLt["webhookID"] == "" {
-			http.Error(w, "400 - Bad Request!", http.StatusBadRequest)
-			return
-		}
-
-		webhookDB :=WEBHOOKForm{}
-		filter := bson.NewDocument(bson.EC.String("webhookid",URLt["webhookID"]))//where uniqueid=urlt["webhookID"] qikjo mas barazimit osht mux variabla te url aty ..../64 qikjo id
-		// decodde osht perdor per me kthy rreshtin e dbs ne strukture trackFileDB
-		err := coll.FindOne(context.Background(),filter).Decode(&webhookDB)
-
-		if err != nil {
-			log.Fatal(err)
-			return
-		}
-		response :="{"
-		response= `"webhookURL":"`+webhookDB.WEBHOOKURL+`"\n`
-		response= `"minTriggerValue":"`+fmt.Sprint(webhookDB.MINTRIGGERVALUE)+`"\n`
-		response="}"
-		fmt.Fprint(w, "{\n\"webhookURL\": \""+webhookDB.WEBHOOKURL+"\",\n\"minTriggerValue\": " +
-			"\""+fmt.Sprint(webhookDB.MINTRIGGERVALUE)+"\"\n")
-
-		fmt.Fprint(w,response)
-
-
+	URLt := mux.Vars(r)
+	if len(URLt) != 1 {
+		http.Error(w, "400 - Bad Request!", http.StatusBadRequest)
+		return
+	}
+	if URLt["webhookID"] == "" {
+		http.Error(w, "400 - Bad Request!", http.StatusBadRequest)
+		return
 	}
 
+	webhookDB := WEBHOOKForm{}
+	filter := bson.NewDocument(bson.EC.String("webhookid", URLt["webhookID"])) //where uniqueid=urlt["webhookID"] qikjo mas barazimit osht mux variabla te url aty ..../64 qikjo id
+	// decodde osht perdor per me kthy rreshtin e dbs ne strukture trackFileDB
+	err := coll.FindOne(context.Background(), filter).Decode(&webhookDB)
+	if err != nil {
+		http.Error(w, "", 400)
+		return
+	}
+
+	if r.Method == http.MethodGet {
+
+		// response := "{"
+		// response = `"webhookURL":"` + webhookDB.WEBHOOKURL + `"\n`
+		// response = `"minTriggerValue":"` + fmt.Sprint(webhookDB.MINTRIGGERVALUE) + `"\n`
+		// response = "}"
+		fmt.Fprint(w, "{\n\"webhookURL\": \""+webhookDB.WEBHOOKURL+"\",\n\"minTriggerValue\": "+
+			"\""+fmt.Sprint(webhookDB.MINTRIGGERVALUE)+"\"\n}")
+
+		//fmt.Fprint(w, response)
+
+	} else if r.Method == http.MethodDelete {
+		http.Error(w, "", 400)
+		del, err := coll.DeleteOne(context.Background(), filter)
+		if err != nil {
+			http.Error(w, "", 400)
+			return
+		}
+		if del.DeletedCount == 0 { //nese delete fail
+			http.Error(w, "", 400)
+			return
+		}
+		// response := "{"
+		// response = `"webhookURL":"` + webhookDB.WEBHOOKURL + `"\n`
+		// response = `"minTriggerValue":"` + fmt.Sprint(webhookDB.MINTRIGGERVALUE) + `"\n`
+		//response = "}"
+		fmt.Fprint(w, "{\n\"webhookURL\": \""+webhookDB.WEBHOOKURL+"\",\n\"minTriggerValue\": "+
+			"\""+fmt.Sprint(webhookDB.MINTRIGGERVALUE)+"\"\n}")
+
+		//fmt.Fprint(w, response)
+
+	} else {
+		http.Error(w, "", 400)
+	}
 
 }
 
@@ -186,7 +204,7 @@ func triggerWebhook() {
 		latestTS := tLatest()
 		jsonPayload := "{"
 		jsonPayload += `"username": "Tracks added",`
-			jsonPayload += `"content": "Latest added track at ` + latestTS + `\n`
+		jsonPayload += `"content": "Latest added track at ` + latestTS + `\n`
 		jsonPayload += `New tracks are ` + trackString + `\n`
 		jsonPayload += `The request took ` + strconv.FormatFloat(float64(time.Since(processStart))/float64(time.Millisecond), 'f', 2, 64) + `ms to process"`
 		jsonPayload += "}"
@@ -202,4 +220,50 @@ func triggerWebhook() {
 		}
 		defer resp.Body.Close()
 	}
+}
+
+func triggerWebhookPeriod(len int64) {
+	webhookinfo := WEBHOOKForm{}
+
+	trackCount, err := collection.Count(context.Background(), nil)
+	if err != nil {
+		// http.Error(w, "", 400)
+		return
+	}
+	cursor, err := coll.Find(context.Background(), nil)
+	if err != nil {
+		// http.Error(w, "", 400)
+		return
+	}
+
+	for cursor.Next(context.Background()) {
+
+		cursor.Decode(&webhookinfo)
+
+		processStart := time.Now() // Track when the process started
+
+		url := webhookinfo.WEBHOOKURL
+
+		trackString := returnTracks(int64(trackCount), int64(webhookinfo.MINTRIGGERVALUE))
+
+		latestTS := tLatest()
+		jsonPayload := "{"
+		jsonPayload += `"username": "Tracks added",`
+		jsonPayload += `"content": "Latest added track at ` + latestTS + `\n`
+		jsonPayload += `New tracks are ` + trackString + `\n`
+		jsonPayload += `The request took ` + strconv.FormatFloat(float64(time.Since(processStart))/float64(time.Millisecond), 'f', 2, 64) + `ms to process"`
+		jsonPayload += "}"
+
+		var jsonStr = []byte(jsonPayload)
+		req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
+		req.Header.Set("Content-Type", "application/json")
+
+		client := &http.Client{}
+		resp, err := client.Do(req)
+		if err != nil {
+			panic(err)
+		}
+		defer resp.Body.Close()
+	}
+
 }
