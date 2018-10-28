@@ -309,3 +309,20 @@ func Test_webhookInMongo(t *testing.T) {
 		t.Error("Webhook should not exist")
 	}
 }
+func Test_whTrigger(t *testing.T){
+
+	err := triggerWebhook()
+
+	if err != nil {
+		t.Error(err)
+	}
+}
+
+func Test_whcTrigger(t *testing.T){
+
+	err := triggerWebhookPeriod()
+
+	if err != nil {
+		t.Error(err)
+	}
+}

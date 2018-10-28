@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 )
 
 
@@ -210,7 +211,7 @@ func Test_getAPIIgc_Post(t *testing.T) {
 	}
 
 	if resp.StatusCode == 400 {
-		assert.Equal(t, 400, resp.StatusCode, "OK response is expected")
+		assert.Equal(t, 400, resp.StatusCode, "Bad request is expected")
 	} else {
 		assert.Equal(t, 200, resp.StatusCode, "OK response is expected")
 	}
@@ -240,5 +241,124 @@ func Test_getAPIIgcPostEmpty(t *testing.T) {
 	}
 
 	assert.Equal(t, 400, resp.StatusCode, "OK response is expected")
+
+}
+
+func Test_getAPITicker1(t *testing.T){
+	req, err := http.NewRequest("GET", "/igcinfo/api/ticker", nil)
+	if err != nil {
+		t.Error(err)
+	}
+
+	// Create a ResponseRecorder to record the response
+	resRecorder := httptest.NewRecorder()
+	handler := http.HandlerFunc(getAPITicker)
+
+	// Our handlers satisfy http.Handler, so we can call their ServeHTTP method
+	// directly and pass in our Request and ResponseRecorder.
+	handler.ServeHTTP(resRecorder, req)
+
+	// Check the status code
+	if resRecorder.Code != http.StatusOK { // It should be 200 (OK)
+		t.Errorf("handler returned wrong status code: got %v want %v", resRecorder.Code, http.StatusOK)
+	}
+}
+
+func Test_respHandler(t *testing.T){
+
+	resp,j := respHandler("testest123")
+
+	if resp == "" || j !=0 {
+		t.Error("Timestamp was not correct!")
+	}
+}
+
+func Test_FormatTime(t *testing.T){
+
+	resp := FormatSince(time.Now())
+
+	if resp == "" {
+		t.Error("Timestamp was not correct!")
+	}
+}
+
+func Test_getJ(t *testing.T){
+
+	resp := getJ(collection,"randomTest")
+
+	if resp !=0 {
+		t.Error("Timestamp was not correct!")
+	}
+}
+
+
+func Test_tLatest(t *testing.T){
+
+	resp := tLatest()
+
+	if resp !="" {
+		t.Error("Timestamp was not correct!")
+	}
+}
+
+func Test_GetApiIGC(test *testing.T) {
+
+	testServer := httptest.NewServer(http.HandlerFunc(getAPIigc))
+	defer testServer.Close()
+
+	client := &http.Client{}
+
+	jsonPayload := "{"
+	jsonPayload += `"url": "http://skypolaris.org/wp-content/uploads/IGS%20Files/Medellin%20Guatemala.igc"`
+	jsonPayload += "}"
+
+	var jsonStr = []byte(jsonPayload)
+	request, err := http.NewRequest(http.MethodPost, testServer.URL, bytes.NewBuffer(jsonStr))
+
+	if err != nil {
+		test.Errorf("Error constructing the GET request, %s", err)
+	}
+
+	response, err := client.Do(request)
+	if err != nil {
+		test.Errorf("Error executing the GET request, %s", err)
+	}
+
+	if response.StatusCode != http.StatusOK {
+		test.Errorf("StatusNotFound %d, received %d. ",404, response.StatusCode)
+		return
+	}
+
+}
+
+
+func Test_WebHookHandler(test *testing.T) {
+
+	testServer := httptest.NewServer(http.HandlerFunc(WebHookHandler))
+	defer testServer.Close()
+
+	client := &http.Client{}
+
+	jsonPayload := "{"
+	jsonPayload += `"webhookurl": "https://discordapp.com/api/webhooks/504251337953771521/ASiZ1DNh9YtTbLbEOzTp-LmUny8ju_qyhhQwmWlAE6zuWWI7x2nLhLbof9vnNp771at4",`
+	jsonPayload += `"mintriggervalue": 2`
+	jsonPayload += "}"
+
+	var jsonStr = []byte(jsonPayload)
+	request, err := http.NewRequest(http.MethodPost, testServer.URL, bytes.NewBuffer(jsonStr))
+
+	if err != nil {
+		test.Errorf("Error constructing the GET request, %s", err)
+	}
+
+	response, err := client.Do(request)
+	if err != nil {
+		test.Errorf("Error executing the GET request, %s", err)
+	}
+
+	if response.StatusCode != http.StatusOK {
+		test.Errorf("StatusNotFound %d, received %d. ",404, response.StatusCode)
+		return
+	}
 
 }

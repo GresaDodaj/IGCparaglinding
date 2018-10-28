@@ -169,18 +169,18 @@ func WebHookHandlerID(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func triggerWebhook() {
+func triggerWebhook() error{
 	webhookinfo := WEBHOOKForm{}
 
 	trackCount, err := collection.Count(context.Background(), nil)
 	if err != nil {
 		// http.Error(w, "", 400)
-		return
+		return err
 	}
 	cursor, err := coll.Find(context.Background(), nil)
 	if err != nil {
 		// http.Error(w, "", 400)
-		return
+		return err
 	}
 
 	for cursor.Next(context.Background()) {
@@ -216,20 +216,21 @@ func triggerWebhook() {
 		}
 		defer resp.Body.Close()
 	}
+	return err
 }
 
-func triggerWebhookPeriod(len int64) {
+func triggerWebhookPeriod() error{
 	webhookinfo := WEBHOOKForm{}
 
 	trackCount, err := collection.Count(context.Background(), nil)
 	if err != nil {
 		// http.Error(w, "", 400)
-		return
+		return err
 	}
 	cursor, err := coll.Find(context.Background(), nil)
 	if err != nil {
 		// http.Error(w, "", 400)
-		return
+		return err
 	}
 
 	for cursor.Next(context.Background()) {
@@ -261,5 +262,5 @@ func triggerWebhookPeriod(len int64) {
 		}
 		defer resp.Body.Close()
 	}
-
+	return err
 }

@@ -223,7 +223,11 @@ func getAPIigc(w http.ResponseWriter, request *http.Request) {
 			}
 			fmt.Fprint(w, "{\n\t\"id\": \""+track.UniqueID+"\"\n}")
 
-			triggerWebhook()
+			err = triggerWebhook()
+			if err != nil {
+				http.Error(w, "", 400)
+				return
+			}
 			lengthTrigAfter, err = collection.Count(context.Background(), nil)
 			if err != nil {
 				http.Error(w, "", 400)
@@ -440,8 +444,13 @@ func getAPITickerTimeStamp(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "400 - Bad Request!", http.StatusBadRequest)
 		return
 	}
-
 	w.Header().Set("content-type", "application/json")
+	resp,_ := respHandler(URLt["timestamp"])
+	fmt.Fprint(w, resp)
+
+}
+func respHandler(x string)(string,int64){
+
 	sTime := time.Now()
 	t_latest := ""
 	t_start := ""
@@ -461,7 +470,7 @@ func getAPITickerTimeStamp(w http.ResponseWriter, r *http.Request) {
 		log.Fatal(err1)
 	}
 	i := int64(0) //lengthi osht int64 qata e kena bo qashtu edhe vleren e ka 0
-	j := getJ(collection, URLt["timestamp"])
+	j := getJ(collection, x)
 	//cur.Next kthen true ose false, true nese ka rreshta tjere e false e kthen kur osht te rreshti i fundit
 	for cur.Next(context.Background()) {
 		//tash ktu te dhanat prej dbs i kthejme ne strukture
@@ -498,12 +507,11 @@ func getAPITickerTimeStamp(w http.ResponseWriter, r *http.Request) {
 		i++
 	}
 	tracksStr += "]"
-	fmt.Fprint(w, "{\n\"t_latest\": \""+t_latest+"\",\n\"t_start\": "+
+	resp := "{\n\"t_latest\": \""+t_latest+"\",\n\"t_start\": "+
 		"\""+t_start+"\",\n\"t_stop\": \""+t_stop+"\",\n\"tracks\": "+
-		"\""+tracksStr+"\",\n\"processing\": \""+time.Since(sTime).String()+"\"\n}")
-
+		"\""+tracksStr+"\",\n\"processing\": \""+time.Since(sTime).String()+"\"\n}"
+	return resp,j
 }
-
 //function calculating the total  distance of the flight, from the start point until end point(geographical coordinates)
 func trackLength(track igc.Track) float64 {
 
@@ -583,7 +591,10 @@ func main() {
 			select {
 			case <-ticker.C:
 				if lengthTrig < lengthTrigAfter {
-					triggerWebhookPeriod(lengthTrig)
+					err := triggerWebhookPeriod()
+					if err != nil{
+						log.Fatal(err)
+					}
 					lengthTrig++
 				}
 				//fmt.Print("u bo ")
