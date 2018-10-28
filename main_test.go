@@ -242,5 +242,3 @@ func Test_getAPIIgcPostEmpty(t *testing.T) {
 	assert.Equal(t, 400, resp.StatusCode, "OK response is expected")
 
 }
-
-

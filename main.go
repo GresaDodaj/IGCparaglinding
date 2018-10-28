@@ -71,16 +71,12 @@ func checkUrl(collection *mongo.Collection, url string, urlDB string) int64 {
 
 //connectToDB is a function to connect the server to database
 func connectToDB(col string) *mongo.Collection {
-	client, err := mongo.NewClient("mongodb://localhost:27017")
-	if err != nil {
-		log.Fatal(err)
-	}
-	err = client.Connect(context.TODO())
+	client, err := mongo.Connect(context.Background(),"mongodb://gresad:prishtina123@ds113443.mlab.com:13443/paraglidingdb",nil)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	collection := client.Database("paraglidingDB").Collection(col)
+	collection := client.Database("paraglidingdb").Collection(col)
 
 	return collection
 }
@@ -277,8 +273,7 @@ func getApiIgcID(w http.ResponseWriter, request *http.Request) {
 
 	trackFileDB := trackFile{}
 
-	filter := bson.NewDocument(bson.EC.String("uniqueid", URLt["id"])) //where uniqueid=urlt["id"] qikjo mas barazimit osht mux variabla te url aty ..../64 qikjo id
-	// decodde osht perdor per me kthy rreshtin e dbs ne strukture trackFileDB
+	filter := bson.NewDocument(bson.EC.String("uniqueid", URLt["id"]))
 	err := collection.FindOne(context.Background(), filter).Decode(&trackFileDB)
 
 	if err != nil {
@@ -315,14 +310,13 @@ func getApiIgcIDField(w http.ResponseWriter, request *http.Request) {
 
 	trackFileDB := trackFile{}
 
-	filter := bson.NewDocument(bson.EC.String("uniqueid", URLs["id"])) //where uniqueid=urlt["id"] qikjo mas barazimit osht mux variabla te url aty ..../64 qikjo id
-	// decodde osht perdor per me kthy rreshtin e dbs ne strukture trackFileDB
+	filter := bson.NewDocument(bson.EC.String("uniqueid", URLs["id"]))
 	err := collection.FindOne(context.Background(), filter).Decode(&trackFileDB)
 
 	if err != nil {
 		log.Fatal(err)
 	}
-	//te url te pathi qe e shkrujna ../field e merr qita edhe me switch qka tosht e qet
+	//url path .../field switch
 	switch URLs["field"] {
 
 	case "pilot":
@@ -340,6 +334,7 @@ func getApiIgcIDField(w http.ResponseWriter, request *http.Request) {
 	}
 
 }
+
 func getAPITickerLatest(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Fprint(w, tLatest())
@@ -591,7 +586,7 @@ func main() {
 					triggerWebhookPeriod(lengthTrig)
 					lengthTrig++
 				}
-				fmt.Print("u bo ")
+				//fmt.Print("u bo ")
 			case <-quit:
 				ticker.Stop()
 				return
@@ -607,9 +602,7 @@ func main() {
 	router.HandleFunc("/paragliding/api/ticker/latest", getAPITickerLatest)
 	router.HandleFunc("/paragliding/api/ticker", getAPITicker)
 	router.HandleFunc("/paragliding/api/ticker/{timestamp}", getAPITickerTimeStamp)
-	//qikjo {id} osht mux.vars
 	router.HandleFunc("/paragliding/api/track/{id}", getApiIgcID)
-	//ktu edhe field osht njo prej mux.vars
 	router.HandleFunc("/paragliding/api/track/{id}/{field}", getApiIgcIDField)
 	router.HandleFunc("/api/webhook/new_track/", WebHookHandler)
 	router.HandleFunc("/api/webhook/new_track/{webhookID}", WebHookHandlerID)
