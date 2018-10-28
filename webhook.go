@@ -132,30 +132,26 @@ func WebHookHandlerID(w http.ResponseWriter, r *http.Request) {
 	// decodde osht perdor per me kthy rreshtin e dbs ne strukture trackFileDB
 	err := coll.FindOne(context.Background(), filter).Decode(&webhookDB)
 	if err != nil {
-		http.Error(w, "", 400)
+		http.Error(w, "", 501)
 		return
 	}
 
 	if r.Method == http.MethodGet {
 
-		// response := "{"
-		// response = `"webhookURL":"` + webhookDB.WEBHOOKURL + `"\n`
-		// response = `"minTriggerValue":"` + fmt.Sprint(webhookDB.MINTRIGGERVALUE) + `"\n`
-		// response = "}"
 		fmt.Fprint(w, "{\n\"webhookURL\": \""+webhookDB.WEBHOOKURL+"\",\n\"minTriggerValue\": "+
 			"\""+fmt.Sprint(webhookDB.MINTRIGGERVALUE)+"\"\n}")
 
 		//fmt.Fprint(w, response)
 
 	} else if r.Method == http.MethodDelete {
-		http.Error(w, "", 400)
+		http.Error(w, "", 501)
 		del, err := coll.DeleteOne(context.Background(), filter)
 		if err != nil {
-			http.Error(w, "", 400)
+			http.Error(w, "", 501)
 			return
 		}
 		if del.DeletedCount == 0 { //nese delete fail
-			http.Error(w, "", 400)
+			http.Error(w, "", 501)
 			return
 		}
 		// response := "{"
@@ -168,7 +164,7 @@ func WebHookHandlerID(w http.ResponseWriter, r *http.Request) {
 		//fmt.Fprint(w, response)
 
 	} else {
-		http.Error(w, "", 400)
+		http.Error(w, "", 501)
 	}
 
 }
