@@ -292,7 +292,7 @@ func getApiIgcID(w http.ResponseWriter, request *http.Request) {
 	fmt.Fprint(w, "{\n\"H_date\": \""+trackFileDB.HDate+"\",\n\"pilot\": "+
 		"\""+trackFileDB.Pilot+"\",\n\"GliderType\": \""+trackFileDB.Glider+"\",\n\"Glider_ID\": "+
 		"\""+trackFileDB.GliderID+"\",\n\"track_length\": \""+trackFileDB.TrackLength+"\""+
-		",\n\"track_src_url\": \""+trackFileDB.Url+"\"\n}")
+		",\n\"track_src_url\": \""+trackFileDB.URL+"\"\n}")
 
 }
 
@@ -589,7 +589,7 @@ func tLatest() string {
 
 func main() {
 
-	ticker := time.NewTicker(40 * time.Second)
+	ticker := time.NewTicker(600 * time.Second)
 	quit := make(chan struct{})
 	go func() {
 		for {
@@ -625,11 +625,11 @@ func main() {
 	router.HandleFunc("/paragliding/api/ticker", getAPITicker)
 	router.HandleFunc("/paragliding/api/ticker/{timestamp}", getAPITickerTimeStamp)
 
-	//err := http.ListenAndServe(":"+os.Getenv("PORT"), router)
-	if err := http.ListenAndServe(":8080", router); err != nil {
-		//if err != nil {
-		log.Fatal(err)
-		//	log.Fatal("ListenAndServe: ", err)
+	err := http.ListenAndServe(":"+os.Getenv("PORT"), router)
+	//if err := http.ListenAndServe(":8080", router); err != nil {
+		if err != nil {
+		//log.Fatal(err)
+			log.Fatal("ListenAndServe: ", err)
 	}
 
 }
