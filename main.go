@@ -4,15 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/gorilla/mux"
+	"github.com/marni/goigc"
+	"github.com/mongodb/mongo-go-driver/bson"
+	"github.com/mongodb/mongo-go-driver/mongo"
 	"log"
 	"math/rand"
 	"net/http"
 	"os"
 	"time"
-	"github.com/gorilla/mux"
-	"github.com/marni/goigc"
-	"github.com/mongodb/mongo-go-driver/bson"
-	"github.com/mongodb/mongo-go-driver/mongo"
 	//"github.com/mongodb/mongo-go-driver/mongo"
 )
 
@@ -118,7 +118,96 @@ func getAPI(w http.ResponseWriter, request *http.Request) {
 
 	json.NewEncoder(w).Encode(metaInfo)
 }
+func postAPIigc(w http.ResponseWriter,request *http.Request){
 
+
+
+	// Set response content-type to JSON
+	w.Header().Set("content-type", "application/json")
+
+	URLt := &url{}
+
+	//Url is given to the server as JSON and now we decode it to a go structure
+	var error = json.NewDecoder(request.Body).Decode(URLt)
+	if error != nil {
+	http.Error(w, http.StatusText(400), 400)
+	return
+	}
+
+	//making a random unique ID for the track files
+	rand.Seed(time.Now().UnixNano())
+
+	track, err := igc.ParseLocation(URLt.URL)
+	if err != nil {
+
+	http.Error(w, "Bad request!\nMalformed URL!", 400)
+	return
+	}
+
+	initialID = rand.Intn(100)
+	trackFileDB := trackFile{}
+	//checkURL gets the collection, url posted and url from database
+	if checkURL(collection, URLt.URL, "url") == 0 {
+	//if the check url is 0 then it means that the url posted is not in the database so the insertion is executed
+	//we assign the initialID(as string that's why the Sprintf is used
+	track.UniqueID = fmt.Sprintf("%d", initialID)
+	//from the track file which contains all the data of an igc file we assign values to the trackFileDB object
+	trackFileDB = trackFile{track.Pilot,
+	track.Date.String(),
+	track.GliderType,
+	track.GliderID,
+	fmt.Sprintf("%f", trackLength(track)),
+	URLt.URL,
+	track.UniqueID,
+	time.Now()}
+
+	lengthTrig, err = collection.Count(context.Background(), nil)
+	if err != nil {
+	http.Error(w, "", 400)
+	return
+	}
+
+	//insert that data to the database
+	res, err := collection.InsertOne(context.Background(), trackFileDB)
+	if err != nil {
+	log.Fatal(err)
+	}
+	id := res.InsertedID
+	//id is the objectID of the MongoDB which is always generated as a unique id for every single document
+	// if that id is nil(don't have that id) it means that the insertion failed
+	if id == nil {
+	http.Error(w, "", 500)
+	}
+	fmt.Fprint(w, "{\n\t\"id\": \""+track.UniqueID+"\"\n}")
+
+	err = triggerWebhook()
+	if err != nil {
+	http.Error(w, "", 400)
+	return
+	}
+	lengthTrigAfter, err = collection.Count(context.Background(), nil)
+	if err != nil {
+	http.Error(w, "", 400)
+	return
+	}
+
+	return
+	}
+
+	//analogy: select id from track where urlprejpostit=urlt.url
+	//if the checkURL is not false then find the id of that igc file and print it
+	filter := bson.NewDocument(bson.EC.String("url", URLt.URL)) //where urlprejpostit=urlt.url
+	//decode is used to convert the document from the db to the trackFileDB structure
+	//FindOne because we are filtering them by url so it means that if that url is in db it's only added once so we after it's found one url
+	//that is the same as the url posted, it doesn't need to keep searching in the db for other urls
+	err = collection.FindOne(context.Background(), filter).Decode(&trackFileDB) //select * where urlprejpostit=urlt.url
+
+	if err != nil {
+	log.Fatal(err)
+	}
+	//print only the id of that file
+	fmt.Fprint(w, "{\n\t\"id\": \""+trackFileDB.UniqueID+"\"\n}")
+}
 //getAPIigc returns the id of the igc file if the request method used by the client is POST or returns the ids of igc files already in the db
 //if the request method is GET
 func getAPIigc(w http.ResponseWriter, request *http.Request) {
@@ -167,93 +256,6 @@ func getAPIigc(w http.ResponseWriter, request *http.Request) {
 		ids += "]"
 
 		fmt.Fprint(w, ids)
-
-	case "POST":
-		// Set response content-type to JSON
-		w.Header().Set("content-type", "application/json")
-
-		URLt := &url{}
-
-		//Url is given to the server as JSON and now we decode it to a go structure
-		var error = json.NewDecoder(request.Body).Decode(URLt)
-		if error != nil {
-			http.Error(w, http.StatusText(400), 400)
-			return
-		}
-
-		//making a random unique ID for the track files
-		rand.Seed(time.Now().UnixNano())
-
-		track, err := igc.ParseLocation(URLt.URL)
-		if err != nil {
-
-			http.Error(w, "Bad request!\nMalformed URL!", 400)
-			return
-		}
-
-		initialID = rand.Intn(100)
-		trackFileDB := trackFile{}
-		//checkURL gets the collection, url posted and url from database
-		if checkURL(collection, URLt.URL, "url") == 0 {
-			//if the check url is 0 then it means that the url posted is not in the database so the insertion is executed
-			//we assign the initialID(as string that's why the Sprintf is used
-			track.UniqueID = fmt.Sprintf("%d", initialID)
-			//from the track file which contains all the data of an igc file we assign values to the trackFileDB object
-			trackFileDB = trackFile{track.Pilot,
-				track.Date.String(),
-				track.GliderType,
-				track.GliderID,
-				fmt.Sprintf("%f", trackLength(track)),
-				URLt.URL,
-				track.UniqueID,
-				time.Now()}
-
-			lengthTrig, err = collection.Count(context.Background(), nil)
-			if err != nil {
-				http.Error(w, "", 400)
-				return
-			}
-
-			//insert that data to the database
-			res, err := collection.InsertOne(context.Background(), trackFileDB)
-			if err != nil {
-				log.Fatal(err)
-			}
-			id := res.InsertedID
-			//id is the objectID of the MongoDB which is always generated as a unique id for every single document
-			// if that id is nil(don't have that id) it means that the insertion failed
-			if id == nil {
-				http.Error(w, "", 500)
-			}
-			fmt.Fprint(w, "{\n\t\"id\": \""+track.UniqueID+"\"\n}")
-
-			err = triggerWebhook()
-			if err != nil {
-				http.Error(w, "", 400)
-				return
-			}
-			lengthTrigAfter, err = collection.Count(context.Background(), nil)
-			if err != nil {
-				http.Error(w, "", 400)
-				return
-			}
-
-			return
-		}
-
-			//analogy: select id from track where urlprejpostit=urlt.url
-			//if the checkURL is not false then find the id of that igc file and print it
-			filter := bson.NewDocument(bson.EC.String("url", URLt.URL)) //where urlprejpostit=urlt.url
-			//decode is used to convert the document from the db to the trackFileDB structure
-			//FindOne because we are filtering them by url so it means that if that url is in db it's only added once so we after it's found one url
-			//that is the same as the url posted, it doesn't need to keep searching in the db for other urls
-			err = collection.FindOne(context.Background(), filter).Decode(&trackFileDB) //select * where urlprejpostit=urlt.url
-
-			if err != nil {
-				log.Fatal(err)
-			}
-			//print only the id of that file
-			fmt.Fprint(w, "{\n\t\"id\": \""+trackFileDB.UniqueID+"\"\n}")
 
 
 	default:
@@ -591,16 +593,17 @@ func main() {
 	router.HandleFunc("/paragliding/", IGCinfo)
 	router.HandleFunc("/paragliding/api", getAPI)
 	router.HandleFunc("/paragliding/api/track", getAPIigc)
+	router.HandleFunc("/paragliding/api/track", postAPIigc).Methods("POST")
 	router.HandleFunc("/paragliding/api/track/{id}", getAPIIgcID)
 	router.HandleFunc("/paragliding/api/track/{id}/{field}", getAPIIgcIDField)
-	router.HandleFunc("/api/webhook/new_track/", WebHookHandler)
-	router.HandleFunc("/api/webhook/new_track/{webhookID}", WebHookHandlerID)
-	router.HandleFunc("/admin/api/tracks_count", AdminHandlerGet)
-	router.HandleFunc("/admin/api/tracks", AdminHandlerDelete)
 	router.HandleFunc("/paragliding/api/ticker/latest", getAPITickerLatest)
 	router.HandleFunc("/paragliding/api/ticker", getAPITicker)
 	router.HandleFunc("/paragliding/api/ticker/{timestamp}", getAPITickerTimeStamp)
 	router.HandleFunc("/paragliding/admin/api/webhook",adminClockTrigger)
+	router.HandleFunc("/api/webhook/new_track/", WebHookHandler)
+	router.HandleFunc("/api/webhook/new_track/{webhookID}", WebHookHandlerID)
+	router.HandleFunc("/admin/api/tracks_count", AdminHandlerGet)
+	router.HandleFunc("/admin/api/tracks", AdminHandlerDelete)
 	err := http.ListenAndServe(":"+os.Getenv("PORT"), router)
 	//if err := http.ListenAndServe(":8080", router); err != nil {
 		if err != nil {
