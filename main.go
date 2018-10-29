@@ -265,7 +265,7 @@ func getAPIigc(w http.ResponseWriter, request *http.Request) {
 
 }
 
-func getApiIgcID(w http.ResponseWriter, request *http.Request) {
+func getAPIIgcID(w http.ResponseWriter, request *http.Request) {
 
 	w.Header().Set("content-type", "application/json")
 
@@ -296,7 +296,7 @@ func getApiIgcID(w http.ResponseWriter, request *http.Request) {
 
 }
 
-func getApiIgcIDField(w http.ResponseWriter, request *http.Request) {
+func getAPIIgcIDField(w http.ResponseWriter, request *http.Request) {
 
 	URLs := mux.Vars(request)
 	if len(URLs) != 2 {
@@ -458,9 +458,9 @@ func getAPITickerTimeStamp(w http.ResponseWriter, r *http.Request) {
 func respHandler(x string)(string,int64){
 
 	sTime := time.Now()
-	t_latest := ""
-	t_start := ""
-	t_stop := ""
+	tLatest := ""
+	tStart := ""
+	tStop := ""
 	tracksStr := "["
 
 	trackFileDB := trackFile{}
@@ -488,11 +488,11 @@ func respHandler(x string)(string,int64){
 		}
 
 		if i == j+1 {
-			t_start = fmt.Sprint(trackFileDB.TimeStamp)
+			tStart = fmt.Sprint(trackFileDB.TimeStamp)
 		}
 
 		if i == length-1 {
-			t_latest = fmt.Sprint(trackFileDB.TimeStamp)
+			tLatest = fmt.Sprint(trackFileDB.TimeStamp)
 
 		} else if i > j && i < j+5 {
 			tracksStr += ","
@@ -501,19 +501,19 @@ func respHandler(x string)(string,int64){
 		if length > j+5 {
 
 			if i == j+5 {
-				t_stop = fmt.Sprint(trackFileDB.TimeStamp)
+				tStop = fmt.Sprint(trackFileDB.TimeStamp)
 
 			}
 		} else {
 
-			t_stop = t_latest
+			tStop = tLatest
 		}
 
 		i++
 	}
 	tracksStr += "]"
-	resp := "{\n\"t_latest\": \""+t_latest+"\",\n\"t_start\": "+
-		"\""+t_start+"\",\n\"t_stop\": \""+t_stop+"\",\n\"tracks\": "+
+	resp := "{\n\"tLatest\": \""+ tLatest +"\",\n\"tStart\": "+
+		"\""+ tStart +"\",\n\"tStop\": \""+ tStop +"\",\n\"tracks\": "+
 		"\""+tracksStr+"\",\n\"processing\": \""+time.Since(sTime).String()+"\"\n}"
 	return resp,j
 }
@@ -529,7 +529,7 @@ func trackLength(track igc.Track) float64 {
 	return totalDistance
 }
 
-// function that returns the current uptime of the service, format as specified by ISO 8601.
+//  FormatSince that returns the current uptime of the service, format as specified by ISO 8601.
 func FormatSince(t time.Time) string {
 	const (
 		Decisecond = 100 * time.Millisecond
@@ -592,8 +592,8 @@ func main() {
 	router.HandleFunc("/paragliding/", IGCinfo)
 	router.HandleFunc("/paragliding/api", getAPI)
 	router.HandleFunc("/paragliding/api/track", getAPIigc)
-	router.HandleFunc("/paragliding/api/track/{id}", getApiIgcID)
-	router.HandleFunc("/paragliding/api/track/{id}/{field}", getApiIgcIDField)
+	router.HandleFunc("/paragliding/api/track/{id}", getAPIIgcID)
+	router.HandleFunc("/paragliding/api/track/{id}/{field}", getAPIIgcIDField)
 	router.HandleFunc("/api/webhook/new_track/", WebHookHandler)
 	router.HandleFunc("/api/webhook/new_track/{webhookID}", WebHookHandlerID)
 	router.HandleFunc("/admin/api/tracks_count", AdminHandlerGet)

@@ -61,7 +61,7 @@ func Test_getApiIGC_NotImplemented(test *testing.T) {
 func Test_getAPIIgcId_NotImplemented(t *testing.T) {
 
 	// instantiate mock HTTP server (just for the purpose of testing
-	ts := httptest.NewServer(http.HandlerFunc(getApiIgcID))
+	ts := httptest.NewServer(http.HandlerFunc(getAPIIgcID))
 	defer ts.Close()
 
 	//create a request to our mock HTTP server
@@ -87,7 +87,7 @@ func Test_getAPIIgcId_NotImplemented(t *testing.T) {
 func Test_getAPIIgcField_NotImplemented(t *testing.T) {
 
 	// instantiate mock HTTP server (just for the purpose of testing
-	ts := httptest.NewServer(http.HandlerFunc(getApiIgcIDField))
+	ts := httptest.NewServer(http.HandlerFunc(getAPIIgcIDField))
 	defer ts.Close()
 
 	//create a request to our mock HTTP server
@@ -139,7 +139,7 @@ func Test_getAPIIgc_MalformedURL(t *testing.T) {
 
 func Test_getApiIgcID_Malformed(test *testing.T) {
 
-	testServer := httptest.NewServer(http.HandlerFunc(getApiIgcID))
+	testServer := httptest.NewServer(http.HandlerFunc(getAPIIgcID))
 	defer testServer.Close()
 
 	testCases := []string {
@@ -165,7 +165,7 @@ func Test_getApiIgcID_Malformed(test *testing.T) {
 
 func Test_getApiIgcIDField_MalformedURL(test *testing.T) {
 
-	testServer := httptest.NewServer(http.HandlerFunc(getApiIgcIDField))
+	testServer := httptest.NewServer(http.HandlerFunc(getAPIIgcIDField))
 	defer testServer.Close()
 
 	testCases := []string {
