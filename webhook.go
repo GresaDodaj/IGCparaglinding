@@ -90,7 +90,7 @@ func WebHookHandler(w http.ResponseWriter, r *http.Request) {
 			webhookInfo.MINTRIGGERVALUE = 1
 		}
 
-		if checkUrl(coll, webhookInfo.WEBHOOKURL, "webhookurl") == 0 {
+		if checkURL(coll, webhookInfo.WEBHOOKURL, "webhookurl") == 0 {
 
 			rand.Seed(time.Now().UnixNano())
 			initialID = rand.Intn(100)

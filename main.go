@@ -31,16 +31,16 @@ type url struct {
 //trackFile struct is used to get the data we need from an igc file
 type trackFile struct {
 	Pilot       string
-	H_date      string
+	HDate      string
 	Glider      string
 	GliderID    string
 	TrackLength string
-	Url         string
+	URL 		string
 	UniqueID    string
 	TimeStamp   time.Time
 }
 
-//Struct that saves the ID and igcTrack data
+//Track is a struct that saves the ID and igcTrack data
 type Track struct {
 	ID       string    `json:"ID"`
 	IGCTrack igc.Track `json:"igcTrack"`
@@ -53,8 +53,8 @@ type MetaInfo struct {
 	Version string `json:"version"`
 }
 
-//checkUrl  func checks if the posted url is already in the database
-func checkUrl(collection *mongo.Collection, url string, urlDB string) int64 {
+//checkURL  func checks if the posted url is already in the database
+func checkURL(collection *mongo.Collection, url string, urlDB string) int64 {
 	//select * from collection where url(e postit)=urlDB
 	//url is the url posted and the urlDB are the urls already in db
 	//check if any of the urlDB is the url posted(filter the db documents so that the url posted is equal to one of the urls in DB)
@@ -91,7 +91,7 @@ func GetAddr() string {
 	}
 	return ":" + port
 }
-
+//IGCinfo is a function which returns error if the method used is not get and redirects from /paragliding/ to /paragliding/api
 func IGCinfo(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method != "GET" {
@@ -194,8 +194,8 @@ func getAPIigc(w http.ResponseWriter, request *http.Request) {
 
 		initialID = rand.Intn(100)
 		trackFileDB := trackFile{}
-		//checkUrl gets the collection, url posted and url from database
-		if checkUrl(collection, URLt.URL, "url") == 0 {
+		//checkURL gets the collection, url posted and url from database
+		if checkURL(collection, URLt.URL, "url") == 0 {
 			//if the check url is 0 then it means that the url posted is not in the database so the insertion is executed
 			//we assign the initialID(as string that's why the Sprintf is used
 			track.UniqueID = fmt.Sprintf("%d", initialID)
@@ -243,7 +243,7 @@ func getAPIigc(w http.ResponseWriter, request *http.Request) {
 		} else {
 
 			//analogy: select id from track where urlprejpostit=urlt.url
-			//if the checkUrl is not false then find the id of that igc file and print it
+			//if the checkURL is not false then find the id of that igc file and print it
 			filter := bson.NewDocument(bson.EC.String("url", URLt.URL)) //where urlprejpostit=urlt.url
 			//decode is used to convert the document from the db to the trackFileDB structure
 			//FindOne because we are filtering them by url so it means that if that url is in db it's only added once so we after it's found one url
@@ -289,7 +289,7 @@ func getApiIgcID(w http.ResponseWriter, request *http.Request) {
 		log.Fatal(err)
 	}
 
-	fmt.Fprint(w, "{\n\"H_date\": \""+trackFileDB.H_date+"\",\n\"pilot\": "+
+	fmt.Fprint(w, "{\n\"H_date\": \""+trackFileDB.HDate+"\",\n\"pilot\": "+
 		"\""+trackFileDB.Pilot+"\",\n\"GliderType\": \""+trackFileDB.Glider+"\",\n\"Glider_ID\": "+
 		"\""+trackFileDB.GliderID+"\",\n\"track_length\": \""+trackFileDB.TrackLength+"\""+
 		",\n\"track_src_url\": \""+trackFileDB.Url+"\"\n}")
@@ -331,7 +331,7 @@ func getApiIgcIDField(w http.ResponseWriter, request *http.Request) {
 	case "pilot":
 		fmt.Fprint(w, trackFileDB.Pilot)
 	case "h_date":
-		fmt.Fprint(w, trackFileDB.H_date)
+		fmt.Fprint(w, trackFileDB.HDate)
 	case "glider":
 		fmt.Fprint(w, trackFileDB.Glider)
 	case "glider_id":
@@ -352,9 +352,9 @@ func getAPITickerLatest(w http.ResponseWriter, r *http.Request) {
 func getAPITicker(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("content-type", "application/json")
 	sTime := time.Now()
-	t_latest := ""
-	t_start := ""
-	t_stop := ""
+	tLatest := ""
+	tStart := ""
+	tStop := ""
 	tracksStr := "["
 
 	trackFileDB := trackFile{}
@@ -382,11 +382,11 @@ func getAPITicker(w http.ResponseWriter, r *http.Request) {
 		}
 		//tstarti i bjen rreshti i pare qe osht shtu ne db
 		if i == 0 {
-			t_start = fmt.Sprint(trackFileDB.TimeStamp)
+			tStart = fmt.Sprint(trackFileDB.TimeStamp)
 		}
 		//rreshti i fundit osht length-1 kshtu qe qaj osht tlatest
 		if i == length-1 {
-			t_latest = fmt.Sprint(trackFileDB.TimeStamp)
+			tLatest = fmt.Sprint(trackFileDB.TimeStamp)
 
 		} else if i < 4 {
 			tracksStr += ","
@@ -395,19 +395,19 @@ func getAPITicker(w http.ResponseWriter, r *http.Request) {
 		if length > 4 {
 			//te requiremets cap=5 01234 :
 			if i == 4 {
-				t_stop = fmt.Sprint(trackFileDB.TimeStamp)
+				tStop = fmt.Sprint(trackFileDB.TimeStamp)
 
 			}
 		} else {
 			//nese jon ma pak se 5 copa atehere shtype te fundit
-			t_stop = t_latest
+			tStop = tLatest
 		}
 
 		i++
 	}
 	tracksStr += "]"
-	fmt.Fprint(w, "{\n\"t_latest\": \""+t_latest+"\",\n\"t_start\": "+
-		"\""+t_start+"\",\n\"t_stop\": \""+t_stop+"\",\n\"tracks\": "+
+	fmt.Fprint(w, "{\n\"tLatest\": \""+tLatest+"\",\n\"tStart\": "+
+		"\""+tStart+"\",\n\"tStop\": \""+tStop+"\",\n\"tracks\": "+
 		"\""+tracksStr+"\",\n\"processing\": \""+time.Since(sTime).String()+"\"\n}")
 
 }

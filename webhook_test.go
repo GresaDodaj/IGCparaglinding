@@ -297,14 +297,14 @@ func Test_mongoConnectWebhooks(t *testing.T) {
 
 func Test_urlInMong(t *testing.T) {
 	URLt := &url{}
-	urlExists := checkUrl(connectToDB("track"), URLt.URL,"url")
+	urlExists := checkURL(connectToDB("track"), URLt.URL,"url")
 	if urlExists !=0{
 		t.Error("Track should not exist")
 	}
 }
 func Test_webhookInMongo(t *testing.T) {
 	URLt := &url{}
-	urlExists := checkUrl(connectToDB("webhooks"), URLt.URL,"url")
+	urlExists := checkURL(connectToDB("webhooks"), URLt.URL,"url")
 	if urlExists !=0{
 		t.Error("Webhook should not exist")
 	}
