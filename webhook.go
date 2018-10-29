@@ -36,7 +36,7 @@ func returnTracks(n int64, x int64) string {
 
 	}
 	resp := ""
-	var i int64 = 0
+	var i int64
 
 	for cur.Next(context.Background()) {
 		cur.Decode(&trackFileDB)
@@ -113,6 +113,7 @@ func WebHookHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 }
+//WebHookHandlerID function : Accessing registered webhooks and Deleting registered webhooks
 func WebHookHandlerID(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("content-type", "application/json")

@@ -240,7 +240,7 @@ func getAPIigc(w http.ResponseWriter, request *http.Request) {
 			}
 
 			return
-		} else {
+		}
 
 			//analogy: select id from track where urlprejpostit=urlt.url
 			//if the checkURL is not false then find the id of that igc file and print it
@@ -248,14 +248,14 @@ func getAPIigc(w http.ResponseWriter, request *http.Request) {
 			//decode is used to convert the document from the db to the trackFileDB structure
 			//FindOne because we are filtering them by url so it means that if that url is in db it's only added once so we after it's found one url
 			//that is the same as the url posted, it doesn't need to keep searching in the db for other urls
-			err := collection.FindOne(context.Background(), filter).Decode(&trackFileDB) //select * where urlprejpostit=urlt.url
+			err = collection.FindOne(context.Background(), filter).Decode(&trackFileDB) //select * where urlprejpostit=urlt.url
 
 			if err != nil {
 				log.Fatal(err)
 			}
 			//print only the id of that file
 			fmt.Fprint(w, "{\n\t\"id\": \""+trackFileDB.UniqueID+"\"\n}")
-		}
+
 
 	default:
 		http.Error(w, "This method is not implemented!", 501)
@@ -529,7 +529,7 @@ func trackLength(track igc.Track) float64 {
 	return totalDistance
 }
 
-//  FormatSince that returns the current uptime of the service, format as specified by ISO 8601.
+//FormatSince that returns the current uptime of the service, format as specified by ISO 8601.
 func FormatSince(t time.Time) string {
 	const (
 		Decisecond = 100 * time.Millisecond
