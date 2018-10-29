@@ -233,7 +233,7 @@ The idea behind the clock is to have a task that happens on regular basis withou
 ## Deployment
 
 Deployed in Heroku: https://fierce-oasis-92488.herokuapp.com/
-Deployed in OpenStack and it has these floating IPs: 
+Deployed in OpenStack and it has these floating IPs: 10.212.138.139 
 
 
 ## Built With
