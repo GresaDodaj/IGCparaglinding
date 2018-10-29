@@ -364,34 +364,34 @@ func getAPITicker(w http.ResponseWriter, r *http.Request) {
 		log.Fatal(err)
 	}
 
-	//me length i kena numru sa rreshta jon ne db
+	//length=number of documents in the collection
 	length, err1 := collection.Count(context.Background(), nil)
 	if err1 != nil {
 		log.Fatal(err1)
 	}
-	i := int64(0) //lengthi osht int64 qata e kena bo qashtu edhe vleren e ka 0
-	//cur.Next kthen true ose false, true nese ka rreshta tjere e false e kthen kur osht te rreshti i fundit
+	i := int64(0)
+	//cur.Next returns true if there is a next document in the db, it returns false in the last document
 	for cur.Next(context.Background()) {
-		//tash ktu te dhanat prej dbs i kthejme ne strukture
+		//decoding data from database to trackFileDB struct
 		cur.Decode(&trackFileDB)
 
-		//e kena qe me i pas 5 tracks tash 01234 jon 5 kshtu qe i<=4
+		//five tracks 0 1 2 3 4
 		if i <= 4 {
 			tracksStr += trackFileDB.UniqueID
 
 		}
-		//tstarti i bjen rreshti i pare qe osht shtu ne db
+		//tStart is the time of the first track added in db
 		if i == 0 {
 			tStart = fmt.Sprint(trackFileDB.TimeStamp)
 		}
-		//rreshti i fundit osht length-1 kshtu qe qaj osht tlatest
+		//the last document added is  length-1 -->tLatest
 		if i == length-1 {
 			tLatest = fmt.Sprint(trackFileDB.TimeStamp)
 
 		} else if i < 4 {
 			tracksStr += ","
 		}
-		//nese ka ma shume se 5 tracksa merre te 5tin qe dmth i=4 edhe qata bone tstop
+		//if there are more than 5 tracks then make the 5th track file added time (i=4) the tStop
 		if length > 4 {
 			//te requiremets cap=5 01234 :
 			if i == 4 {
@@ -399,7 +399,7 @@ func getAPITicker(w http.ResponseWriter, r *http.Request) {
 
 			}
 		} else {
-			//nese jon ma pak se 5 copa atehere shtype te fundit
+			//if there are less then 5 then make the latest added the tstop
 			tStop = tLatest
 		}
 
@@ -422,14 +422,14 @@ func getJ(collection *mongo.Collection, a string) int64 {
 
 	var i int64
 	var j int64
-	//perderisa ka rreshta ne db:
+	//while we have documents in db then:
 	for cur.Next(context.Background()) {
 		err := cur.Decode(&trackFileDB)
 		if err != nil {
 			log.Fatal(err)
 		}
-		//nese timestampi qe osht jep ne url A qe osht qikjo: ../timestamp osht ne trackFileDB.TimeStamp.String() atehere ruje ne j qat
-		//timestamp edhe  e kthen
+		//if timestamp given in the url path "a" is in trackFileDB.TimeStamp.String() then save that to the variable j
+		//that timestamp and return it
 		if trackFileDB.TimeStamp.String() == a {
 			j = i
 			break
@@ -438,6 +438,7 @@ func getJ(collection *mongo.Collection, a string) int64 {
 	}
 	return j
 }
+//getAPITickerTimeStamp is a function that returns the JSON struct representing the ticker for the IGC tracks.
 func getAPITickerTimeStamp(w http.ResponseWriter, r *http.Request) {
 	URLt := mux.Vars(r)
 	if len(URLt) != 1 {
@@ -469,43 +470,42 @@ func respHandler(x string)(string,int64){
 		log.Fatal(err)
 	}
 
-	//me length i kena numru sa rreshta jon ne db
+	//length is the number of documents in the db
 	length, err1 := collection.Count(context.Background(), nil)
 	if err1 != nil {
 		log.Fatal(err1)
 	}
-	i := int64(0) //lengthi osht int64 qata e kena bo qashtu edhe vleren e ka 0
+	i := int64(0)
 	j := getJ(collection, x)
-	//cur.Next kthen true ose false, true nese ka rreshta tjere e false e kthen kur osht te rreshti i fundit
+
 	for cur.Next(context.Background()) {
-		//tash ktu te dhanat prej dbs i kthejme ne strukture
+		//the data from the db is converted to the trackFileDB structure
 		cur.Decode(&trackFileDB)
 
-		//e kena qe me i pas 5 tracks tash 01234 jon 5 kshtu qe i<=4
 		if i > j && i <= j+5 {
 			tracksStr += trackFileDB.UniqueID
 
 		}
-		//tstarti i bjen rreshti i pare qe osht shtu ne db
+
 		if i == j+1 {
 			t_start = fmt.Sprint(trackFileDB.TimeStamp)
 		}
-		//rreshti i fundit osht length-1 kshtu qe qaj osht tlatest
+
 		if i == length-1 {
 			t_latest = fmt.Sprint(trackFileDB.TimeStamp)
 
 		} else if i > j && i < j+5 {
 			tracksStr += ","
 		}
-		//nese ka ma shume se 5 tracksa merre te 5tin qe dmth i=4 edhe qata bone tstop
+
 		if length > j+5 {
-			//te requiremets cap=5 01234 :
+
 			if i == j+5 {
 				t_stop = fmt.Sprint(trackFileDB.TimeStamp)
 
 			}
 		} else {
-			//nese jon ma pak se 5 copa atehere shtype te fundit
+
 			t_stop = t_latest
 		}
 
@@ -563,19 +563,16 @@ func tLatest() string {
 		log.Fatal(err)
 	}
 
-	//me length i kena numru sa rreshta jon ne db
 	length, err1 := collection.Count(context.Background(), nil)
 	if err1 != nil {
 		log.Fatal(err1)
 	}
 	respons := ""
-	i := int64(0) //lengthi osht int64 qata e kena bo qashtu edhe vleren e ka 0
-	//cur.Next kthen true ose false, true nese ka rreshta tjere e false e kthen kur osht te rreshti i fundit
+	i := int64(0)
 	for cur.Next(context.Background()) {
-		//tash ktu te dhanat prej dbs i kthejme ne strukture
+
 		cur.Decode(&trackFileDB)
 
-		//kur t'mrrin te rreshti i fundit me ja kthy qat timestamp se qaj osht the latest
 		if i == length-1 {
 			respons = fmt.Sprint(trackFileDB.TimeStamp)
 		}
