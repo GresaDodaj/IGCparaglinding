@@ -34,3 +34,16 @@ func AdminHandlerGet(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "", 400)
 	}
 }
+
+func adminClockTrigger(w http.ResponseWriter, r *http.Request) {
+
+	if r.Method == http.MethodGet { // GET request
+		if lengthTrig < lengthTrigAfter {
+			err := triggerWebhookPeriod()
+			if err != nil {
+				log.Fatal(err)
+			}
+			lengthTrig++
+		}
+	}
+}

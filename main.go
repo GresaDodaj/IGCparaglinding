@@ -589,26 +589,6 @@ func tLatest() string {
 
 func main() {
 
-	ticker := time.NewTicker(600 * time.Second)
-	quit := make(chan struct{})
-	go func() {
-		for {
-			select {
-			case <-ticker.C:
-				if lengthTrig < lengthTrigAfter {
-					err := triggerWebhookPeriod()
-					if err != nil{
-						log.Fatal(err)
-					}
-					lengthTrig++
-				}
-				//fmt.Print("u bo ")
-			case <-quit:
-				ticker.Stop()
-				return
-			}
-		}
-	}()
 
 	router := mux.NewRouter()
 
@@ -624,7 +604,7 @@ func main() {
 	router.HandleFunc("/paragliding/api/ticker/latest", getAPITickerLatest)
 	router.HandleFunc("/paragliding/api/ticker", getAPITicker)
 	router.HandleFunc("/paragliding/api/ticker/{timestamp}", getAPITickerTimeStamp)
-
+	router.HandleFunc("/paragliding/admin/api/webhook",adminClockTrigger)
 	err := http.ListenAndServe(":"+os.Getenv("PORT"), router)
 	//if err := http.ListenAndServe(":8080", router); err != nil {
 		if err != nil {
