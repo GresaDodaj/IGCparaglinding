@@ -30,11 +30,11 @@ type url struct {
 //trackFile struct is used to get the data we need from an igc file
 type trackFile struct {
 	Pilot       string
-	HDate      string
+	HDate       string
 	Glider      string
 	GliderID    string
 	TrackLength string
-	URL 		string
+	URL         string
 	UniqueID    string
 	TimeStamp   time.Time
 }
@@ -70,7 +70,7 @@ func checkURL(collection *mongo.Collection, url string, urlDB string) int64 {
 
 //connectToDB is a function to connect the server to database
 func connectToDB(col string) *mongo.Collection {
-	client, err := mongo.Connect(context.Background(),"mongodb://gresad:prishtina123@ds113443.mlab.com:13443/paraglidingdb",nil)
+	client, err := mongo.Connect(context.Background(), "mongodb://gresad:prishtina123@ds113443.mlab.com:13443/paraglidingdb", nil)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -90,6 +90,7 @@ func GetAddr() string {
 	}
 	return ":" + port
 }
+
 //IGCinfo is a function which returns error if the method used is not get and redirects from /paragliding/ to /paragliding/api
 func IGCinfo(w http.ResponseWriter, r *http.Request) {
 
@@ -118,9 +119,7 @@ func getAPI(w http.ResponseWriter, request *http.Request) {
 
 	json.NewEncoder(w).Encode(metaInfo)
 }
-func postAPIigc(w http.ResponseWriter,request *http.Request){
-
-
+func postAPIigc(w http.ResponseWriter, request *http.Request) {
 
 	// Set response content-type to JSON
 	w.Header().Set("content-type", "application/json")
@@ -130,8 +129,8 @@ func postAPIigc(w http.ResponseWriter,request *http.Request){
 	//Url is given to the server as JSON and now we decode it to a go structure
 	var error = json.NewDecoder(request.Body).Decode(URLt)
 	if error != nil {
-	http.Error(w, http.StatusText(400), 400)
-	return
+		http.Error(w, http.StatusText(400), 400)
+		return
 	}
 
 	//making a random unique ID for the track files
@@ -140,58 +139,58 @@ func postAPIigc(w http.ResponseWriter,request *http.Request){
 	track, err := igc.ParseLocation(URLt.URL)
 	if err != nil {
 
-	http.Error(w, "Bad request!\nMalformed URL!", 400)
-	return
+		http.Error(w, "Bad request!\nMalformed URL!", 400)
+		return
 	}
 
 	initialID = rand.Intn(100)
 	trackFileDB := trackFile{}
 	//checkURL gets the collection, url posted and url from database
 	if checkURL(collection, URLt.URL, "url") == 0 {
-	//if the check url is 0 then it means that the url posted is not in the database so the insertion is executed
-	//we assign the initialID(as string that's why the Sprintf is used
-	track.UniqueID = fmt.Sprintf("%d", initialID)
-	//from the track file which contains all the data of an igc file we assign values to the trackFileDB object
-	trackFileDB = trackFile{track.Pilot,
-	track.Date.String(),
-	track.GliderType,
-	track.GliderID,
-	fmt.Sprintf("%f", trackLength(track)),
-	URLt.URL,
-	track.UniqueID,
-	time.Now()}
+		//if the check url is 0 then it means that the url posted is not in the database so the insertion is executed
+		//we assign the initialID(as string that's why the Sprintf is used
+		track.UniqueID = fmt.Sprintf("%d", initialID)
+		//from the track file which contains all the data of an igc file we assign values to the trackFileDB object
+		trackFileDB = trackFile{track.Pilot,
+			track.Date.String(),
+			track.GliderType,
+			track.GliderID,
+			fmt.Sprintf("%f", trackLength(track)),
+			URLt.URL,
+			track.UniqueID,
+			time.Now()}
 
-	lengthTrig, err = collection.Count(context.Background(), nil)
-	if err != nil {
-	http.Error(w, "", 400)
-	return
-	}
+		lengthTrig, err = collection.Count(context.Background(), nil)
+		if err != nil {
+			http.Error(w, "", 400)
+			return
+		}
 
-	//insert that data to the database
-	res, err := collection.InsertOne(context.Background(), trackFileDB)
-	if err != nil {
-	log.Fatal(err)
-	}
-	id := res.InsertedID
-	//id is the objectID of the MongoDB which is always generated as a unique id for every single document
-	// if that id is nil(don't have that id) it means that the insertion failed
-	if id == nil {
-	http.Error(w, "", 500)
-	}
-	fmt.Fprint(w, "{\n\t\"id\": \""+track.UniqueID+"\"\n}")
+		//insert that data to the database
+		res, err := collection.InsertOne(context.Background(), trackFileDB)
+		if err != nil {
+			log.Fatal(err)
+		}
+		id := res.InsertedID
+		//id is the objectID of the MongoDB which is always generated as a unique id for every single document
+		// if that id is nil(don't have that id) it means that the insertion failed
+		if id == nil {
+			http.Error(w, "", 500)
+		}
+		fmt.Fprint(w, "{\n\t\"id\": \""+track.UniqueID+"\"\n}")
 
-	err = triggerWebhook()
-	if err != nil {
-	http.Error(w, "", 400)
-	return
-	}
-	lengthTrigAfter, err = collection.Count(context.Background(), nil)
-	if err != nil {
-	http.Error(w, "", 400)
-	return
-	}
+		err = triggerWebhook()
+		if err != nil {
+			http.Error(w, "", 400)
+			return
+		}
+		lengthTrigAfter, err = collection.Count(context.Background(), nil)
+		if err != nil {
+			http.Error(w, "", 400)
+			return
+		}
 
-	return
+		return
 	}
 
 	//analogy: select id from track where urlprejpostit=urlt.url
@@ -203,11 +202,12 @@ func postAPIigc(w http.ResponseWriter,request *http.Request){
 	err = collection.FindOne(context.Background(), filter).Decode(&trackFileDB) //select * where urlprejpostit=urlt.url
 
 	if err != nil {
-	log.Fatal(err)
+		log.Fatal(err)
 	}
 	//print only the id of that file
 	fmt.Fprint(w, "{\n\t\"id\": \""+trackFileDB.UniqueID+"\"\n}")
 }
+
 //getAPIigc returns the id of the igc file if the request method used by the client is POST or returns the ids of igc files already in the db
 //if the request method is GET
 func getAPIigc(w http.ResponseWriter, request *http.Request) {
@@ -256,7 +256,6 @@ func getAPIigc(w http.ResponseWriter, request *http.Request) {
 		ids += "]"
 
 		fmt.Fprint(w, ids)
-
 
 	default:
 		http.Error(w, "This method is not implemented!", 501)
@@ -439,6 +438,7 @@ func getJ(collection *mongo.Collection, a string) int64 {
 	}
 	return j
 }
+
 //getAPITickerTimeStamp is a function that returns the JSON struct representing the ticker for the IGC tracks.
 func getAPITickerTimeStamp(w http.ResponseWriter, r *http.Request) {
 	URLt := mux.Vars(r)
@@ -452,11 +452,11 @@ func getAPITickerTimeStamp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("content-type", "application/json")
-	resp,_ := respHandler(URLt["timestamp"])
+	resp, _ := respHandler(URLt["timestamp"])
 	fmt.Fprint(w, resp)
 
 }
-func respHandler(x string)(string,int64){
+func respHandler(x string) (string, int64) {
 
 	sTime := time.Now()
 	tLatest := ""
@@ -513,11 +513,12 @@ func respHandler(x string)(string,int64){
 		i++
 	}
 	tracksStr += "]"
-	resp := "{\n\"tLatest\": \""+ tLatest +"\",\n\"tStart\": "+
-		"\""+ tStart +"\",\n\"tStop\": \""+ tStop +"\",\n\"tracks\": "+
-		"\""+tracksStr+"\",\n\"processing\": \""+time.Since(sTime).String()+"\"\n}"
-	return resp,j
+	resp := "{\n\"tLatest\": \"" + tLatest + "\",\n\"tStart\": " +
+		"\"" + tStart + "\",\n\"tStop\": \"" + tStop + "\",\n\"tracks\": " +
+		"\"" + tracksStr + "\",\n\"processing\": \"" + time.Since(sTime).String() + "\"\n}"
+	return resp, j
 }
+
 //function calculating the total  distance of the flight, from the start point until end point(geographical coordinates)
 func trackLength(track igc.Track) float64 {
 
@@ -587,7 +588,6 @@ func tLatest() string {
 
 func main() {
 
-
 	router := mux.NewRouter()
 
 	router.HandleFunc("/paragliding/", IGCinfo)
@@ -599,16 +599,16 @@ func main() {
 	router.HandleFunc("/paragliding/api/ticker/latest", getAPITickerLatest)
 	router.HandleFunc("/paragliding/api/ticker", getAPITicker)
 	router.HandleFunc("/paragliding/api/ticker/{timestamp}", getAPITickerTimeStamp)
-	router.HandleFunc("/paragliding/admin/api/webhook",adminClockTrigger)
+	router.HandleFunc("/paragliding/admin/api/webhook", adminClockTrigger)
 	router.HandleFunc("/api/webhook/new_track/", WebHookHandler)
 	router.HandleFunc("/api/webhook/new_track/{webhookID}", WebHookHandlerID)
 	router.HandleFunc("/admin/api/tracks_count", AdminHandlerGet)
 	router.HandleFunc("/admin/api/tracks", AdminHandlerDelete)
 	err := http.ListenAndServe(":"+os.Getenv("PORT"), router)
 	//if err := http.ListenAndServe(":8080", router); err != nil {
-		if err != nil {
+	if err != nil {
 		//log.Fatal(err)
-			log.Fatal("ListenAndServe: ", err)
+		log.Fatal("ListenAndServe: ", err)
 	}
 
 }

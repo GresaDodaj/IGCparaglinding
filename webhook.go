@@ -5,15 +5,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/gorilla/mux"
+	"github.com/mongodb/mongo-go-driver/bson"
+	"github.com/mongodb/mongo-go-driver/mongo"
 	"log"
 	"math/rand"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
-	"github.com/gorilla/mux"
-	"github.com/mongodb/mongo-go-driver/bson"
-	"github.com/mongodb/mongo-go-driver/mongo"
 )
 
 var coll = connectToDB("webhooks")
@@ -112,6 +112,7 @@ func WebHookHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 }
+
 //WebHookHandlerID function : Accessing registered webhooks and Deleting registered webhooks
 func WebHookHandlerID(w http.ResponseWriter, r *http.Request) {
 
@@ -169,7 +170,7 @@ func WebHookHandlerID(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func triggerWebhook() error{
+func triggerWebhook() error {
 	webhookinfo := WEBHOOKForm{}
 
 	trackCount, err := collection.Count(context.Background(), nil)
@@ -219,7 +220,7 @@ func triggerWebhook() error{
 	return err
 }
 
-func triggerWebhookPeriod() error{
+func triggerWebhookPeriod() error {
 	webhookinfo := WEBHOOKForm{}
 
 	trackCount, err := collection.Count(context.Background(), nil)
