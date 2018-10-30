@@ -20,7 +20,7 @@ func Test_IGCinfo(test *testing.T) {
 	//request, err := http.NewRequest(http.MethodGet, testServer.URL, nil)
 	//if err != nil {
 	//	test.Errorf("Error constructing the GET request, %s", err)
-//	}
+	//	}
 
 	/*response, err := client.Do(request)
 	if err != nil {
